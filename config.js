@@ -7,7 +7,7 @@
 window.SHOP_CONFIG = {
   SUPABASE_URL: "https://hjotkwdozgoktkwzikci.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_bLFgYvet7h2VPpO-0wRN1g_pAR078O-",
-  SHOP_NAME: "Nook & Noveltj",
+  SHOP_NAME: "Nook & Novelty",
   CURRENCY: "ZAR",
   LOCALE: "en-ZA",
 };
