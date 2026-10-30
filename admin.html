@@ -137,7 +137,12 @@
       <!-- ================= PRODUCTS ================= -->
       <section id="view-products" class="hidden">
         <h2>Products</h2>
-        <div class="panel" style="margin-bottom:16px">
+        <div class="tabs" id="productTabs">
+          <button class="btn active" data-ptab="stock">Stock</button>
+          <button class="btn" data-ptab="add">Add Stock</button>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px" id="ptab-add">
           <h3 style="margin-top:0" id="formTitle">Add new product</h3>
           <form id="productForm">
             <input type="hidden" name="id" />
@@ -169,7 +174,7 @@
           </form>
         </div>
 
-        <div class="panel">
+        <div class="panel" id="ptab-stock">
           <div class="toolbar">
             <input id="productSearch" type="search" placeholder="Search products…" />
             <select id="productCatFilter"><option value="">All categories</option></select>
@@ -370,7 +375,8 @@
     // ===== VERSION — bump this with every update =====
     // 1.0 first release · 1.1 order emails · 1.2 sidebar, business details, categories
     // 1.3 cost price · 1.4 login title · 2.0 dashboard, suppliers, users & roles
-    const APP_VERSION = "2.0";
+    // 2.1 Stock / Add Stock sub-tabs, quick + Stock button
+    const APP_VERSION = "2.1";
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
     const cfg = window.SHOP_CONFIG;
@@ -553,7 +559,10 @@
           <td>${money(p.price)}</td>
           <td>${p.cost_price != null ? money(p.cost_price) : '<span class="muted">—</span>'}</td>
           <td>${marginText(p.price, p.cost_price, true)}</td>
-          <td>${p.stock}</td>
+          <td style="white-space:nowrap">
+            <span style="${p.stock === 0 ? "color:var(--danger);font-weight:600" : ""}">${p.stock}</span>
+            <button class="btn" data-addstock="${p.id}" title="Add stock received" style="padding:4px 8px;margin-left:6px">+ Stock</button>
+          </td>
           <td><span class="badge">${p.active ? "Visible" : "Hidden"}</span></td>
           <td style="white-space:nowrap">
             <button class="btn" data-edit="${p.id}">Edit</button>
@@ -582,6 +591,35 @@
       $("preview").classList.toggle("hidden", !file);
       if (file) $("preview").src = URL.createObjectURL(file);
     };
+    // ---------- Stock / Add Stock sub-tabs ----------
+    function showProductTab(name) {
+      $("ptab-stock").classList.toggle("hidden", name !== "stock");
+      $("ptab-add").classList.toggle("hidden", name !== "add");
+      document.querySelectorAll("[data-ptab]").forEach(b => b.classList.toggle("active", b.dataset.ptab === name));
+      if (name === "add") setTimeout(() => form.name.focus(), 50);
+    }
+    document.querySelectorAll("[data-ptab]").forEach(b => b.onclick = () => {
+      if (b.dataset.ptab === "add" && form.id.value) resetForm(); // "Add Stock" always starts a fresh product
+      showProductTab(b.dataset.ptab);
+    });
+    showProductTab("stock");
+
+    async function addStock(id) {
+      const p = products.find(x => x.id === id);
+      const input = prompt(`How many units of "${p.name}" did you receive?\nCurrent stock: ${p.stock}`, "1");
+      if (input === null) return;
+      const qty = parseInt(input, 10);
+      if (!Number.isInteger(qty) || qty <= 0) return toast("Please enter a whole number above 0");
+      // read the latest figure first so a recent sale isn't overwritten
+      const { data: fresh, error: readErr } = await db.from("products").select("stock").eq("id", id).single();
+      if (readErr) return toast(readErr.message);
+      const newStock = fresh.stock + qty;
+      const { error } = await db.from("products").update({ stock: newStock }).eq("id", id);
+      if (error) return toast(error.message);
+      toast(`${p.name}: +${qty} → ${newStock} in stock`);
+      loadProducts();
+    }
+
     function resetForm() {
       form.reset(); form.id.value = ""; form.active.checked = true;
       updateMarginInfo();
@@ -589,7 +627,7 @@
       $("formTitle").textContent = "Add new product";
       $("cancelEdit").classList.add("hidden");
     }
-    $("cancelEdit").onclick = resetForm;
+    $("cancelEdit").onclick = () => { resetForm(); showProductTab("stock"); };
 
     function editProduct(id) {
       const p = products.find(x => x.id === id);
@@ -602,6 +640,7 @@
       if (p.image_url) $("preview").src = p.image_url;
       $("formTitle").textContent = "Edit product";
       $("cancelEdit").classList.remove("hidden");
+      showProductTab("add");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -629,6 +668,7 @@
         if (file && existing?.image_path) await db.storage.from(BUCKET).remove([existing.image_path]);
         toast(id ? "Product updated" : "Product added");
         resetForm(); loadProducts();
+        showProductTab("stock");
       } catch (err) { toast(err.message); }
       finally { $("saveBtn").disabled = false; }
     };
@@ -914,6 +954,7 @@
       const d = e.target.dataset;
       if (d.edit) editProduct(d.edit);
       if (d.del) deleteProduct(d.del);
+      if (d.addstock) addStock(d.addstock);
       if (d.up) moveCategory(d.up, -1);
       if (d.down) moveCategory(d.down, 1);
       if (d.delcat) deleteCategory(d.delcat);
