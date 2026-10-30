@@ -201,18 +201,15 @@
       <!-- ================= ORDERS ================= -->
       <section id="view-orders" class="hidden">
         <h2>Orders</h2>
+        <div class="tabs" id="orderTabs" style="flex-wrap:wrap"></div>
         <div class="panel">
           <div class="toolbar">
-            <select id="statusFilter">
-              <option value="">All statuses</option>
-              <option>new</option><option>paid</option><option>shipped</option>
-              <option>completed</option><option>cancelled</option>
-            </select>
+            <input id="orderSearch" type="search" placeholder="Search name, email or order number…" />
             <button class="btn" id="refreshOrders">Refresh</button>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Ref</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
+              <thead><tr><th>Date</th><th>Ref</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr></thead>
               <tbody id="orderRows"></tbody>
             </table>
           </div>
@@ -394,7 +391,8 @@
     // 1.3 cost price · 1.4 login title · 2.0 dashboard, suppliers, users & roles
     // 2.1 Stock / Add Stock sub-tabs, quick + Stock button
     // 2.2 supplier & min stock on products, stock alert email
-    const APP_VERSION = "2.2";
+    // 2.3 order status tabs, delete orders
+    const APP_VERSION = "2.3";
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
     const cfg = window.SHOP_CONFIG;
@@ -714,24 +712,59 @@
     // =====================================================
     // ORDERS
     // =====================================================
+    const ORDER_STATUSES = ["new", "paid", "shipped", "completed", "cancelled"];
+    const STATUS_LABEL = { all: "All", new: "New", paid: "Paid", shipped: "Shipped", completed: "Completed", cancelled: "Cancelled" };
+    let orders = [];
+    let orderTab = "all";
+
     async function loadOrders() {
-      let q = db.from("orders").select("*").order("created_at", { ascending: false }).limit(200);
-      const s = $("statusFilter").value;
-      if (s) q = q.eq("status", s);
-      const { data, error } = await q;
+      const { data, error } = await db.from("orders").select("*").order("created_at", { ascending: false }).limit(500);
       if (error) return toast(error.message);
-      const statuses = ["new", "paid", "shipped", "completed", "cancelled"];
-      $("orderRows").innerHTML = data.map(o => `<tr>
+      orders = data;
+      renderOrders();
+    }
+
+    function renderOrders() {
+      // tab bar with counts
+      const count = s => s === "all" ? orders.length : orders.filter(o => o.status === s).length;
+      $("orderTabs").innerHTML = ["all", ...ORDER_STATUSES].map(s =>
+        `<button class="btn ${orderTab === s ? "active" : ""}" data-otab="${s}">${STATUS_LABEL[s]} <span style="opacity:.7">(${count(s)})</span></button>`
+      ).join("");
+
+      const q = $("orderSearch").value.trim().toLowerCase();
+      const list = orders.filter(o =>
+        (orderTab === "all" || o.status === orderTab) &&
+        (!q || o.customer_name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q) ||
+               o.id.slice(0, 8).toLowerCase().includes(q)));
+
+      $("orderRows").innerHTML = list.map(o => `<tr>
         <td style="white-space:nowrap">${new Date(o.created_at).toLocaleString(cfg.LOCALE)}</td>
         <td>${o.id.slice(0, 8).toUpperCase()}</td>
         <td>${esc(o.customer_name)}<div class="muted" style="font-size:12px">${esc(o.email)}${o.phone ? " · " + esc(o.phone) : ""}</div>
             ${o.address ? `<div class="muted" style="font-size:12px">${esc(o.address)}</div>` : ""}</td>
         <td style="font-size:13px">${o.items.map(i => `${i.qty} × ${esc(i.name)}`).join("<br>")}</td>
-        <td>${money(o.total)}</td>
-        <td><select data-order="${o.id}">${statuses.map(s => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select></td>
-      </tr>`).join("") || `<tr><td colspan="6" class="muted">No orders yet.</td></tr>`;
+        <td style="white-space:nowrap">${money(o.total)}</td>
+        <td><select data-order="${o.id}">${ORDER_STATUSES.map(s => `<option value="${s}" ${s === o.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`).join("")}</select></td>
+        <td>${isAdmin() ? `<button class="btn danger" data-delorder="${o.id}">Delete</button>` : ""}</td>
+      </tr>`).join("") || `<tr><td colspan="7" class="muted">${orders.length ? "No orders in this view." : "No orders yet."}</td></tr>`;
     }
-    $("statusFilter").onchange = loadOrders;
+
+    async function deleteOrder(id) {
+      const o = orders.find(x => x.id === id);
+      const ref = id.slice(0, 8).toUpperCase();
+      if (!confirm(`Delete order ${ref} from ${o.customer_name} (${money(o.total)})?\n\nThis cannot be undone.`)) return;
+      const restock = confirm(
+        `Put the items from order ${ref} back into stock?\n\n` +
+        o.items.map(i => `  ${i.qty} × ${i.name}`).join("\n") +
+        `\n\nOK = yes, add them back to stock\nCancel = no, leave stock as it is`);
+      const { error } = await db.rpc("delete_order", { p_order_id: id, p_restock: restock });
+      if (error) return toast(/function .*delete_order/i.test(error.message) ? "Run update-06 in Supabase first" : error.message);
+      toast(`Order ${ref} deleted` + (restock ? " and items returned to stock" : ""));
+      loadOrders();
+      loadProducts();
+    }
+
+    $("orderSearch").oninput = renderOrders;
     $("refreshOrders").onclick = loadOrders;
 
     // =====================================================
@@ -1001,6 +1034,8 @@
       if (d.edit) editProduct(d.edit);
       if (d.del) deleteProduct(d.del);
       if (d.addstock) addStock(d.addstock);
+      if (d.otab) { orderTab = d.otab; renderOrders(); }
+      if (d.delorder) deleteOrder(d.delorder);
       if (d.up) moveCategory(d.up, -1);
       if (d.down) moveCategory(d.down, 1);
       if (d.delcat) deleteCategory(d.delcat);
@@ -1014,7 +1049,8 @@
       const d = e.target.dataset;
       if (d.order) {
         const { error } = await db.from("orders").update({ status: e.target.value }).eq("id", d.order);
-        toast(error ? error.message : "Order status updated");
+        toast(error ? error.message : "Order marked as " + STATUS_LABEL[e.target.value]);
+        loadOrders();
       }
       if (d.rename) {
         const name = e.target.value.trim();
