@@ -8,33 +8,42 @@
 </head>
 <body>
   <header class="top">
-    <h1 id="shopName">Shop</h1>
-    <button class="btn primary" id="cartBtn">Cart (<span id="cartCount">0</span>)</button>
+    <div class="brand">
+      <img id="logo" class="hidden" alt="" />
+      <div style="min-width:0">
+        <h1 id="shopName">Shop</h1>
+        <div class="tagline hidden" id="tagline"></div>
+      </div>
+    </div>
+    <button class="btn primary" id="cartBtn" style="flex:none">Cart (<span id="cartCount">0</span>)</button>
   </header>
 
   <main>
-    <div class="toolbar">
-      <input id="search" type="search" placeholder="Search products…" />
-      <select id="category"><option value="">All categories</option></select>
-    </div>
+    <div class="toolbar"><input id="search" type="search" placeholder="Search products…" /></div>
+    <div class="cats" id="cats"></div>
     <div id="products" class="grid"></div>
     <p id="empty" class="muted hidden">No products found.</p>
   </main>
 
+  <footer class="shop-footer hidden" id="footer"><div class="inner" id="footerInner"></div></footer>
+
   <div class="overlay" id="overlay"></div>
   <aside class="drawer" id="cart">
-    <div class="head"><strong>Your cart</strong></div>
+    <div class="head"><strong id="drawerTitle">Your cart</strong></div>
     <div class="content">
-      <div id="cartLines"></div>
-      <form id="checkout" class="hidden">
-        <h3>Checkout</h3>
-        <label>Full name *</label><input name="name" required />
-        <label>Email *</label><input name="email" type="email" required />
-        <label>Phone</label><input name="phone" type="tel" />
-        <label>Delivery address</label><textarea name="address" rows="3"></textarea>
-      </form>
+      <div id="cartView">
+        <div id="cartLines"></div>
+        <form id="checkout" class="hidden">
+          <h3>Checkout</h3>
+          <label>Full name *</label><input name="name" required />
+          <label>Email *</label><input name="email" type="email" required />
+          <label>Phone</label><input name="phone" type="tel" />
+          <label>Delivery address</label><textarea name="address" rows="3"></textarea>
+        </form>
+      </div>
+      <div id="doneView" class="hidden"></div>
     </div>
-    <div class="foot">
+    <div class="foot" id="cartFoot">
       <div class="line" style="border:0"><strong>Total</strong><strong id="cartTotal">R0.00</strong></div>
       <button class="btn primary" id="checkoutBtn" style="width:100%">Checkout</button>
       <button class="btn" id="closeCart" style="width:100%;margin-top:8px">Continue shopping</button>
@@ -52,45 +61,75 @@
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
-    document.title = cfg.SHOP_NAME;
-    $("shopName").textContent = cfg.SHOP_NAME;
-
     let products = [];
+    let categories = [];
+    let settings = {};
+    let activeCat = "";
     let cart = loadCart();
 
-    function loadCart() {
-      try { return JSON.parse(localStorage.getItem("cart") || "{}"); } catch { return {}; }
-    }
-    function saveCart() {
-      try { localStorage.setItem("cart", JSON.stringify(cart)); } catch {}
-      renderCart();
-    }
+    function loadCart() { try { return JSON.parse(localStorage.getItem("cart") || "{}"); } catch { return {}; } }
+    function storeCart() { try { localStorage.setItem("cart", JSON.stringify(cart)); } catch {} }
+    function saveCart() { storeCart(); renderCart(); }
     function toast(msg) {
       const t = $("toast"); t.textContent = msg; t.classList.add("show");
       clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2500);
     }
 
-    async function loadProducts() {
-      const { data, error } = await db.from("products")
-        .select("id,name,description,price,stock,category,image_url")
-        .eq("active", true).order("created_at", { ascending: false });
-      if (error) { toast("Could not load products: " + error.message); return; }
-      products = data;
-      // drop cart items that are no longer for sale
+    // ---------- BUSINESS DETAILS ----------
+    async function loadSettings() {
+      const { data } = await db.from("settings").select("data").eq("id", 1).maybeSingle();
+      settings = data?.data || {};
+      const name = settings.business_name || cfg.SHOP_NAME || "Shop";
+      document.title = settings.tagline ? `${name} — ${settings.tagline}` : name;
+      $("shopName").textContent = name;
+      $("tagline").textContent = settings.tagline || "";
+      $("tagline").classList.toggle("hidden", !settings.tagline);
+      $("logo").classList.toggle("hidden", !settings.logo_url);
+      if (settings.logo_url) { $("logo").src = settings.logo_url; $("logo").alt = name; }
+
+      const wa = (settings.whatsapp || "").replace(/\D/g, "").replace(/^0/, "27");
+      const bits = [
+        settings.email && `<span>✉ <a href="mailto:${esc(settings.email)}">${esc(settings.email)}</a></span>`,
+        settings.phone && `<span>☎ <a href="tel:${esc(settings.phone)}">${esc(settings.phone)}</a></span>`,
+        wa && `<span>WhatsApp: <a href="https://wa.me/${wa}" target="_blank" rel="noopener">${esc(settings.whatsapp)}</a></span>`,
+        settings.website && `<span><a href="${esc(settings.website)}" target="_blank" rel="noopener">${esc(settings.website.replace(/^https?:\/\//, ""))}</a></span>`,
+        settings.address && `<span>${esc(settings.address).replace(/\n/g, ", ")}</span>`,
+        settings.reg_no && `<span>Reg: ${esc(settings.reg_no)}</span>`,
+        settings.vat_no && `<span>VAT: ${esc(settings.vat_no)}</span>`,
+      ].filter(Boolean);
+      bits.push(`<span>© ${new Date().getFullYear()} ${esc(name)}</span>`);
+      $("footerInner").innerHTML = bits.join("");
+      $("footer").classList.remove("hidden");
+    }
+
+    // ---------- CATEGORIES & PRODUCTS ----------
+    async function loadCatalog() {
+      const [cats, prods] = await Promise.all([
+        db.from("categories").select("id,name").eq("active", true).order("sort_order").order("name"),
+        db.from("products").select("id,name,description,price,stock,category_id,image_url")
+          .eq("active", true).order("created_at", { ascending: false }),
+      ]);
+      if (prods.error) { toast("Could not load products: " + prods.error.message); return; }
+      categories = cats.data || [];
+      products = prods.data;
       for (const id of Object.keys(cart)) if (!products.some(p => p.id === id)) delete cart[id];
-      try { localStorage.setItem("cart", JSON.stringify(cart)); } catch {}
-      const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
-      $("category").innerHTML = '<option value="">All categories</option>' +
-        cats.map(c => `<option>${esc(c)}</option>`).join("");
-      renderProducts();
-      renderCart();
+      storeCart();
+      if (activeCat && !categories.some(c => c.id === activeCat)) activeCat = "";
+      renderCats(); renderProducts(); renderCart();
+    }
+
+    function renderCats() {
+      // only show categories that actually have products
+      const used = categories.filter(c => products.some(p => p.category_id === c.id));
+      $("cats").classList.toggle("hidden", used.length === 0);
+      $("cats").innerHTML = `<button class="btn ${activeCat ? "" : "active"}" data-cat="">All</button>` +
+        used.map(c => `<button class="btn ${activeCat === c.id ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("");
     }
 
     function renderProducts() {
       const q = $("search").value.trim().toLowerCase();
-      const cat = $("category").value;
       const list = products.filter(p =>
-        (!cat || p.category === cat) &&
+        (!activeCat || p.category_id === activeCat) &&
         (!q || p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q)));
       $("empty").classList.toggle("hidden", list.length > 0);
       $("products").innerHTML = list.map(p => `
@@ -108,6 +147,7 @@
         </div>`).join("");
     }
 
+    // ---------- CART ----------
     function addToCart(id) {
       const p = products.find(x => x.id === id);
       const current = cart[id] || 0;
@@ -139,7 +179,40 @@
     function openCart(open) {
       $("cart").classList.toggle("open", open);
       $("overlay").classList.toggle("show", open);
-      if (!open) { $("checkout").classList.add("hidden"); $("checkoutBtn").textContent = "Checkout"; }
+      if (!open) {
+        $("checkout").classList.add("hidden");
+        $("checkoutBtn").textContent = "Checkout";
+        $("cartView").classList.remove("hidden");
+        $("doneView").classList.add("hidden");
+        $("cartFoot").querySelector(".line").classList.remove("hidden");
+        $("checkoutBtn").classList.remove("hidden");
+        $("closeCart").textContent = "Continue shopping";
+        $("drawerTitle").textContent = "Your cart";
+      }
+    }
+
+    function showOrderDone(ref, total, email) {
+      const s = settings;
+      const hasBank = s.bank_name || s.account_number;
+      const row = (k, v) => v ? `<div><span class="muted">${k}</span><strong>${esc(v)}</strong></div>` : "";
+      $("doneView").innerHTML = `
+        <h3 style="margin-top:0">Thank you for your order!</h3>
+        <p>Your order number is <strong>${ref}</strong>. We'll be in touch at ${esc(email)}.</p>
+        <p>Amount due: <strong>${money(total)}</strong></p>
+        ${hasBank ? `
+          <h4 style="margin:16px 0 6px">Pay by EFT</h4>
+          <div class="eft">
+            ${row("Bank", s.bank_name)}${row("Account holder", s.account_name)}
+            ${row("Account number", s.account_number)}${row("Branch code", s.branch_code)}
+            ${row("Account type", s.account_type)}${row("Reference", ref)}
+          </div>` : ""}
+        ${s.payment_note ? `<p class="muted" style="font-size:14px;white-space:pre-line">${esc(s.payment_note)}</p>` : ""}`;
+      $("cartView").classList.add("hidden");
+      $("doneView").classList.remove("hidden");
+      $("cartFoot").querySelector(".line").classList.add("hidden");
+      $("checkoutBtn").classList.add("hidden");
+      $("closeCart").textContent = "Back to shop";
+      $("drawerTitle").textContent = "Order placed";
     }
 
     async function placeOrder() {
@@ -153,29 +226,33 @@
       if (!form.reportValidity()) return;
       const f = Object.fromEntries(new FormData(form));
       const items = Object.entries(cart).map(([id, qty]) => ({ id, qty }));
+      const total = items.reduce((t, i) => t + products.find(p => p.id === i.id).price * i.qty, 0);
       $("checkoutBtn").disabled = true;
       const { data, error } = await db.rpc("place_order", { p_customer: f, p_items: items });
       $("checkoutBtn").disabled = false;
       if (error) { toast(error.message); return; }
-      cart = {}; saveCart(); form.reset(); openCart(false);
-      toast("Order placed! Reference: " + String(data).slice(0, 8).toUpperCase());
-      loadProducts();
+      const ref = String(data).slice(0, 8).toUpperCase();
+      cart = {}; saveCart(); form.reset();
+      showOrderDone(ref, total, f.email);
+      loadCatalog();
     }
 
+    // ---------- EVENTS ----------
     document.addEventListener("click", e => {
-      const t = e.target;
-      if (t.dataset.add) addToCart(t.dataset.add);
-      if (t.dataset.inc) addToCart(t.dataset.inc);
-      if (t.dataset.dec) { cart[t.dataset.dec]--; if (cart[t.dataset.dec] <= 0) delete cart[t.dataset.dec]; saveCart(); }
+      const d = e.target.dataset;
+      if (d.add) addToCart(d.add);
+      if (d.inc) addToCart(d.inc);
+      if (d.dec) { cart[d.dec]--; if (cart[d.dec] <= 0) delete cart[d.dec]; saveCart(); }
+      if (d.cat !== undefined) { activeCat = d.cat; renderCats(); renderProducts(); }
     });
     $("search").addEventListener("input", renderProducts);
-    $("category").addEventListener("change", renderProducts);
     $("cartBtn").onclick = () => openCart(true);
     $("closeCart").onclick = () => openCart(false);
     $("overlay").onclick = () => openCart(false);
     $("checkoutBtn").onclick = placeOrder;
 
-    loadProducts();
+    loadSettings();
+    loadCatalog();
   </script>
 </body>
 </html>

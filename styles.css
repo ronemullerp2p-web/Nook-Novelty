@@ -91,3 +91,49 @@ td img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; }
 .hidden { display: none !important; }
 .table-wrap { overflow-x: auto; }
 @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
+
+/* ---------- Admin layout with sidebar ---------- */
+.admin-layout { display: grid; grid-template-columns: 230px 1fr; min-height: calc(100vh - 57px); }
+.sidebar {
+  background: var(--surface); border-right: 1px solid var(--border);
+  padding: 16px 10px; display: flex; flex-direction: column; gap: 2px;
+}
+.sidebar .nav {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 9px 12px; border: 0; background: none; color: var(--text);
+  border-radius: 8px; cursor: pointer; font: inherit;
+}
+.sidebar .nav:hover { background: var(--bg); }
+.sidebar .nav.active { background: var(--accent); color: var(--accent-text); }
+.sidebar .nav svg { width: 18px; height: 18px; flex: none; }
+.sidebar .sub { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px 28px; }
+.sidebar .sub .nav { padding: 7px 12px; font-size: 14px; }
+.sidebar .group-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 14px 12px 4px; }
+.admin-main { padding: 20px; max-width: 1000px; width: 100%; }
+.admin-main h2 { margin: 0 0 16px; font-size: 20px; }
+.menu-toggle { display: none; }
+.logo-preview { width: 80px; height: 80px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.form-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.form-section h3 { margin: 0 0 4px; font-size: 15px; }
+.cat-row td input { width: 100%; }
+@media (max-width: 760px) {
+  .admin-layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; border-right: 0; border-bottom: 1px solid var(--border); }
+  .sidebar.open { display: flex; }
+  .menu-toggle { display: inline-block; }
+  .admin-main { padding: 16px; }
+}
+
+/* ---------- Storefront header / footer ---------- */
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand img { height: 36px; width: auto; max-width: 120px; object-fit: contain; }
+.brand .tagline { font-size: 12px; color: var(--muted); }
+footer.shop-footer {
+  border-top: 1px solid var(--border); background: var(--surface); margin-top: 32px;
+  padding: 20px 16px; color: var(--muted); font-size: 14px;
+}
+footer.shop-footer .inner { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.eft { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 14px; }
+.eft div { display: flex; justify-content: space-between; gap: 8px; }
+.cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.cats button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }

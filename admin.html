@@ -9,16 +9,19 @@
 </head>
 <body>
   <header class="top">
-    <h1>Shop Admin</h1>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn menu-toggle hidden" id="menuToggle" aria-label="Menu">☰</button>
+      <h1 id="adminTitle">Shop Admin</h1>
+    </div>
     <div>
       <span id="who" class="muted" style="font-size:13px;margin-right:8px"></span>
       <button class="btn hidden" id="logoutBtn">Log out</button>
     </div>
   </header>
 
-  <main>
-    <!-- LOGIN -->
-    <div id="loginView" class="panel" style="max-width:380px;margin:40px auto">
+  <!-- LOGIN -->
+  <main id="loginView">
+    <div class="panel" style="max-width:380px;margin:40px auto">
       <h2 style="margin-top:0">Team login</h2>
       <form id="loginForm">
         <label>Email</label><input name="email" type="email" required autocomplete="username" />
@@ -26,23 +29,52 @@
         <button class="btn primary" style="width:100%;margin-top:16px">Log in</button>
       </form>
     </div>
+  </main>
 
-    <!-- APP -->
-    <div id="appView" class="hidden">
-      <div class="tabs">
-        <button class="btn active" data-tab="productsTab">Products</button>
-        <button class="btn" data-tab="ordersTab">Orders</button>
-      </div>
+  <!-- APP -->
+  <div id="appView" class="admin-layout hidden">
+    <nav class="sidebar" id="sidebar">
+      <button class="nav active" data-view="products">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+        Products
+      </button>
+      <button class="nav" data-view="orders">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2l-2 4v14a2 2 0 002 2h12a2 2 0 002-2V6l-2-4z"/><path d="M4 6h16"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+        Orders
+      </button>
 
-      <!-- PRODUCTS TAB -->
-      <section id="productsTab">
+      <div class="group-label">Settings</div>
+      <button class="nav" data-view="business">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+        Business Details
+      </button>
+      <button class="nav" data-view="categories">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+        Categories
+      </button>
+
+      <div style="flex:1"></div>
+      <a class="nav" href="./" target="_blank" style="text-decoration:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+        View shop
+      </a>
+    </nav>
+
+    <main class="admin-main">
+
+      <!-- ================= PRODUCTS ================= -->
+      <section id="view-products">
+        <h2>Products</h2>
         <div class="panel" style="margin-bottom:16px">
           <h3 style="margin-top:0" id="formTitle">Add new product</h3>
           <form id="productForm">
             <input type="hidden" name="id" />
             <div class="row2">
               <div><label>Name *</label><input name="name" required /></div>
-              <div><label>Category</label><input name="category" list="catList" /><datalist id="catList"></datalist></div>
+              <div>
+                <label>Category</label>
+                <select name="category_id" id="productCategory"><option value="">No category</option></select>
+              </div>
             </div>
             <label>Description</label><textarea name="description" rows="3"></textarea>
             <div class="row2">
@@ -62,7 +94,10 @@
         </div>
 
         <div class="panel">
-          <div class="toolbar"><input id="productSearch" type="search" placeholder="Search products…" /></div>
+          <div class="toolbar">
+            <input id="productSearch" type="search" placeholder="Search products…" />
+            <select id="productCatFilter"><option value="">All categories</option></select>
+          </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
@@ -72,8 +107,9 @@
         </div>
       </section>
 
-      <!-- ORDERS TAB -->
-      <section id="ordersTab" class="hidden">
+      <!-- ================= ORDERS ================= -->
+      <section id="view-orders" class="hidden">
+        <h2>Orders</h2>
         <div class="panel">
           <div class="toolbar">
             <select id="statusFilter">
@@ -91,8 +127,96 @@
           </div>
         </div>
       </section>
-    </div>
-  </main>
+
+      <!-- ================= BUSINESS DETAILS ================= -->
+      <section id="view-business" class="hidden">
+        <h2>Business Details</h2>
+        <form id="businessForm" class="panel">
+          <h3 style="margin:0 0 4px;font-size:15px">Shop identity</h3>
+          <p class="muted" style="margin:0;font-size:13px">Shown in the shop header and browser tab.</p>
+          <div class="row2">
+            <div><label>Business name *</label><input name="business_name" required /></div>
+            <div><label>Tagline</label><input name="tagline" placeholder="e.g. Unique gifts & novelties" /></div>
+          </div>
+          <label>Logo</label>
+          <div style="display:flex;align-items:center;gap:12px">
+            <img id="logoPreview" class="logo-preview hidden" alt="" />
+            <div style="flex:1">
+              <input name="logo" type="file" accept="image/*" />
+              <button type="button" class="btn danger hidden" id="removeLogo" style="margin-top:6px">Remove logo</button>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Contact details</h3>
+            <p class="muted" style="margin:0;font-size:13px">Shown in the shop footer.</p>
+            <div class="row2">
+              <div><label>Email</label><input name="email" type="email" /></div>
+              <div><label>Phone</label><input name="phone" type="tel" /></div>
+            </div>
+            <div class="row2">
+              <div><label>WhatsApp number</label><input name="whatsapp" type="tel" placeholder="e.g. 0821234567" /></div>
+              <div><label>Website / social link</label><input name="website" type="url" placeholder="https://" /></div>
+            </div>
+            <label>Physical address</label><textarea name="address" rows="2"></textarea>
+          </div>
+
+          <div class="form-section">
+            <h3>Registration</h3>
+            <div class="row2">
+              <div><label>Company registration no.</label><input name="reg_no" /></div>
+              <div><label>VAT no.</label><input name="vat_no" /></div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>EFT payment details</h3>
+            <p class="muted" style="margin:0;font-size:13px">Shown to customers after they place an order, with their order number as the payment reference. Leave blank to hide.</p>
+            <div class="row2">
+              <div><label>Bank</label><input name="bank_name" placeholder="e.g. FNB" /></div>
+              <div><label>Account holder</label><input name="account_name" /></div>
+            </div>
+            <div class="row2">
+              <div><label>Account number</label><input name="account_number" inputmode="numeric" /></div>
+              <div><label>Branch code</label><input name="branch_code" inputmode="numeric" /></div>
+            </div>
+            <div class="row2">
+              <div>
+                <label>Account type</label>
+                <select name="account_type"><option value="">—</option><option>Cheque</option><option>Savings</option><option>Business</option></select>
+              </div>
+              <div></div>
+            </div>
+            <label>Payment / delivery note for customers</label>
+            <textarea name="payment_note" rows="2" placeholder="e.g. Please send proof of payment to orders@… Orders ship within 2 working days of payment."></textarea>
+          </div>
+
+          <div style="margin-top:20px"><button class="btn primary" id="saveBusiness">Save business details</button></div>
+        </form>
+      </section>
+
+      <!-- ================= CATEGORIES ================= -->
+      <section id="view-categories" class="hidden">
+        <h2>Categories</h2>
+        <div class="panel" style="margin-bottom:16px">
+          <form id="categoryForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+            <div style="flex:1 1 240px"><label style="margin-top:0">New category name</label><input name="name" required placeholder="e.g. Candles" /></div>
+            <button class="btn primary">Add category</button>
+          </form>
+        </div>
+        <div class="panel">
+          <p class="muted" style="margin:0 0 8px;font-size:13px">Edit a name and click away to save. Use the arrows to change the order customers see. A hidden category disappears from the shop's category buttons, but its products stay visible under "All".</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th style="width:80px">Order</th><th>Name</th><th>Products</th><th>Visible</th><th></th></tr></thead>
+              <tbody id="categoryRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
 
   <div class="toast" id="toast"></div>
 
@@ -111,6 +235,8 @@
     }
 
     let products = [];
+    let categories = [];
+    let settings = {};
 
     // ---------- AUTH ----------
     async function refreshSession() {
@@ -119,8 +245,12 @@
       $("loginView").classList.toggle("hidden", loggedIn);
       $("appView").classList.toggle("hidden", !loggedIn);
       $("logoutBtn").classList.toggle("hidden", !loggedIn);
+      $("menuToggle").classList.toggle("hidden", !loggedIn);
       $("who").textContent = loggedIn ? session.user.email : "";
-      if (loggedIn) { loadProducts(); loadOrders(); }
+      if (loggedIn) {
+        await Promise.all([loadSettings(), loadCategories()]);
+        loadProducts(); loadOrders();
+      }
     }
     $("loginForm").onsubmit = async e => {
       e.preventDefault();
@@ -131,35 +261,71 @@
     };
     $("logoutBtn").onclick = async () => { await db.auth.signOut(); refreshSession(); };
 
-    // ---------- TABS ----------
-    document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
-      document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("active", x === b));
-      ["productsTab", "ordersTab"].forEach(id => $(id).classList.toggle("hidden", id !== b.dataset.tab));
-    });
+    // ---------- SIDEBAR NAVIGATION ----------
+    const VIEWS = ["products", "orders", "business", "categories"];
+    function showView(name) {
+      if (!VIEWS.includes(name)) name = "products";
+      VIEWS.forEach(v => $("view-" + v).classList.toggle("hidden", v !== name));
+      document.querySelectorAll(".sidebar [data-view]").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+      $("sidebar").classList.remove("open");
+      if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+      if (name === "orders") loadOrders();
+    }
+    document.querySelectorAll(".sidebar [data-view]").forEach(b => b.onclick = () => showView(b.dataset.view));
+    $("menuToggle").onclick = () => $("sidebar").classList.toggle("open");
+    showView(location.hash.slice(1));
 
-    // ---------- PRODUCTS ----------
+    // ---------- IMAGE UPLOAD HELPER ----------
+    async function uploadImage(file, folder = "") {
+      if (file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5 MB");
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${folder}${crypto.randomUUID()}.${ext}`;
+      const { error } = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type });
+      if (error) throw error;
+      const { data } = db.storage.from(BUCKET).getPublicUrl(path);
+      return { path, url: data.publicUrl };
+    }
+
+    // =====================================================
+    // PRODUCTS
+    // =====================================================
     async function loadProducts() {
       const { data, error } = await db.from("products").select("*").order("created_at", { ascending: false });
       if (error) return toast(error.message);
       products = data;
-      $("catList").innerHTML = [...new Set(data.map(p => p.category).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("");
       renderProducts();
+      renderCategories(); // product counts
     }
+    const catName = id => categories.find(c => c.id === id)?.name || "";
+
     function renderProducts() {
       const q = $("productSearch").value.trim().toLowerCase();
+      const cf = $("productCatFilter").value;
       $("productRows").innerHTML = products
-        .filter(p => !q || p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q))
+        .filter(p => (!cf || (cf === "none" ? !p.category_id : p.category_id === cf)) &&
+                     (!q || p.name.toLowerCase().includes(q) || catName(p.category_id).toLowerCase().includes(q)))
         .map(p => `<tr>
           <td>${p.image_url ? `<img src="${esc(p.image_url)}" alt="">` : ""}</td>
-          <td>${esc(p.name)}</td><td>${esc(p.category || "")}</td>
+          <td>${esc(p.name)}</td><td>${esc(catName(p.category_id))}</td>
           <td>${money(p.price)}</td><td>${p.stock}</td>
           <td><span class="badge">${p.active ? "Visible" : "Hidden"}</span></td>
           <td style="white-space:nowrap">
             <button class="btn" data-edit="${p.id}">Edit</button>
             <button class="btn danger" data-del="${p.id}">Delete</button>
-          </td></tr>`).join("") || `<tr><td colspan="7" class="muted">No products yet — add your first one above.</td></tr>`;
+          </td></tr>`).join("") || `<tr><td colspan="7" class="muted">No products found.</td></tr>`;
     }
     $("productSearch").oninput = renderProducts;
+    $("productCatFilter").onchange = renderProducts;
+
+    function fillCategorySelects() {
+      const opts = categories.map(c => `<option value="${c.id}">${esc(c.name)}${c.active ? "" : " (hidden)"}</option>`).join("");
+      const cur = $("productCategory").value;
+      $("productCategory").innerHTML = `<option value="">No category</option>` + opts;
+      $("productCategory").value = categories.some(c => c.id === cur) ? cur : "";
+      const curF = $("productCatFilter").value;
+      $("productCatFilter").innerHTML = `<option value="">All categories</option><option value="none">No category</option>` + opts;
+      $("productCatFilter").value = curF;
+    }
 
     const form = $("productForm");
     form.image.onchange = () => {
@@ -167,7 +333,6 @@
       $("preview").classList.toggle("hidden", !file);
       if (file) $("preview").src = URL.createObjectURL(file);
     };
-
     function resetForm() {
       form.reset(); form.id.value = ""; form.active.checked = true;
       $("preview").classList.add("hidden");
@@ -178,7 +343,7 @@
 
     function editProduct(id) {
       const p = products.find(x => x.id === id);
-      form.id.value = p.id; form.name.value = p.name; form.category.value = p.category || "";
+      form.id.value = p.id; form.name.value = p.name; form.category_id.value = p.category_id || "";
       form.description.value = p.description || ""; form.price.value = p.price; form.stock.value = p.stock;
       form.active.checked = p.active;
       $("preview").classList.toggle("hidden", !p.image_url);
@@ -186,15 +351,6 @@
       $("formTitle").textContent = "Edit product";
       $("cancelEdit").classList.remove("hidden");
       window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    async function uploadImage(file) {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${crypto.randomUUID()}.${ext}`;
-      const { error } = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type });
-      if (error) throw error;
-      const { data } = db.storage.from(BUCKET).getPublicUrl(path);
-      return { path, url: data.publicUrl };
     }
 
     form.onsubmit = async e => {
@@ -205,31 +361,23 @@
         const existing = products.find(p => p.id === id);
         const row = {
           name: form.name.value.trim(),
-          category: form.category.value.trim() || null,
+          category_id: form.category_id.value || null,
           description: form.description.value.trim() || null,
           price: Number(form.price.value),
           stock: parseInt(form.stock.value, 10),
           active: form.active.checked,
         };
         const file = form.image.files[0];
-        if (file) {
-          if (file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5 MB");
-          const img = await uploadImage(file);
-          row.image_url = img.url; row.image_path = img.path;
-        }
+        if (file) { const img = await uploadImage(file); row.image_url = img.url; row.image_path = img.path; }
         const { error } = id
           ? await db.from("products").update(row).eq("id", id)
           : await db.from("products").insert(row);
         if (error) throw error;
-        // remove the old image if it was replaced
         if (file && existing?.image_path) await db.storage.from(BUCKET).remove([existing.image_path]);
         toast(id ? "Product updated" : "Product added");
         resetForm(); loadProducts();
-      } catch (err) {
-        toast(err.message);
-      } finally {
-        $("saveBtn").disabled = false;
-      }
+      } catch (err) { toast(err.message); }
+      finally { $("saveBtn").disabled = false; }
     };
 
     async function deleteProduct(id) {
@@ -241,7 +389,9 @@
       toast("Product deleted"); loadProducts();
     }
 
-    // ---------- ORDERS ----------
+    // =====================================================
+    // ORDERS
+    // =====================================================
     async function loadOrders() {
       let q = db.from("orders").select("*").order("created_at", { ascending: false }).limit(200);
       const s = $("statusFilter").value;
@@ -262,15 +412,156 @@
     $("statusFilter").onchange = loadOrders;
     $("refreshOrders").onclick = loadOrders;
 
-    document.addEventListener("change", async e => {
-      const id = e.target.dataset.order;
-      if (!id) return;
-      const { error } = await db.from("orders").update({ status: e.target.value }).eq("id", id);
-      toast(error ? error.message : "Order status updated");
-    });
+    // =====================================================
+    // BUSINESS DETAILS
+    // =====================================================
+    const bform = $("businessForm");
+    const BUSINESS_FIELDS = ["business_name","tagline","email","phone","whatsapp","website","address",
+      "reg_no","vat_no","bank_name","account_name","account_number","branch_code","account_type","payment_note"];
+    let pendingLogoRemoval = false;
+
+    async function loadSettings() {
+      const { data, error } = await db.from("settings").select("data").eq("id", 1).maybeSingle();
+      if (error) { toast("Settings: " + error.message + " — have you run update-02 in Supabase?"); return; }
+      settings = data?.data || {};
+      BUSINESS_FIELDS.forEach(f => { if (bform[f]) bform[f].value = settings[f] || ""; });
+      if (!settings.business_name) bform.business_name.value = cfg.SHOP_NAME || "";
+      showLogo(settings.logo_url);
+      pendingLogoRemoval = false;
+      const name = settings.business_name || cfg.SHOP_NAME || "Shop";
+      $("adminTitle").textContent = name + " Admin";
+      document.title = name + " Admin";
+    }
+    function showLogo(url) {
+      $("logoPreview").classList.toggle("hidden", !url);
+      $("removeLogo").classList.toggle("hidden", !url);
+      if (url) $("logoPreview").src = url;
+    }
+    bform.logo.onchange = () => {
+      const f = bform.logo.files[0];
+      if (f) { showLogo(URL.createObjectURL(f)); pendingLogoRemoval = false; }
+    };
+    $("removeLogo").onclick = () => { bform.logo.value = ""; pendingLogoRemoval = true; showLogo(null); };
+
+    bform.onsubmit = async e => {
+      e.preventDefault();
+      $("saveBusiness").disabled = true;
+      try {
+        const next = { ...settings };
+        BUSINESS_FIELDS.forEach(f => { next[f] = (bform[f].value || "").trim(); });
+        const oldPath = settings.logo_path;
+        const file = bform.logo.files[0];
+        if (file) {
+          const img = await uploadImage(file, "logo/");
+          next.logo_url = img.url; next.logo_path = img.path;
+        } else if (pendingLogoRemoval) {
+          next.logo_url = ""; next.logo_path = "";
+        }
+        const { error } = await db.from("settings")
+          .update({ data: next, updated_at: new Date().toISOString() }).eq("id", 1);
+        if (error) throw error;
+        if ((file || pendingLogoRemoval) && oldPath) await db.storage.from(BUCKET).remove([oldPath]);
+        bform.logo.value = "";
+        toast("Business details saved");
+        loadSettings();
+      } catch (err) { toast(err.message); }
+      finally { $("saveBusiness").disabled = false; }
+    };
+
+    // =====================================================
+    // CATEGORIES
+    // =====================================================
+    async function loadCategories() {
+      const { data, error } = await db.from("categories").select("*")
+        .order("sort_order").order("name");
+      if (error) { toast("Categories: " + error.message + " — have you run update-02 in Supabase?"); return; }
+      categories = data;
+      fillCategorySelects();
+      renderCategories();
+      renderProducts();
+    }
+    function renderCategories() {
+      $("categoryRows").innerHTML = categories.map((c, i) => {
+        const count = products.filter(p => p.category_id === c.id).length;
+        return `<tr class="cat-row">
+          <td style="white-space:nowrap">
+            <button class="btn" data-up="${c.id}" ${i === 0 ? "disabled" : ""} title="Move up">↑</button>
+            <button class="btn" data-down="${c.id}" ${i === categories.length - 1 ? "disabled" : ""} title="Move down">↓</button>
+          </td>
+          <td><input data-rename="${c.id}" value="${esc(c.name)}" /></td>
+          <td>${count}</td>
+          <td><input type="checkbox" data-visible="${c.id}" ${c.active ? "checked" : ""} style="width:auto" /></td>
+          <td><button class="btn danger" data-delcat="${c.id}">Delete</button></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="5" class="muted">No categories yet — add one above.</td></tr>`;
+    }
+
+    $("categoryForm").onsubmit = async e => {
+      e.preventDefault();
+      const name = e.target.name.value.trim();
+      if (!name) return;
+      const sort_order = categories.length ? Math.max(...categories.map(c => c.sort_order)) + 1 : 0;
+      const { error } = await db.from("categories").insert({ name, sort_order });
+      if (error) return toast(error.code === "23505" ? "That category already exists" : error.message);
+      e.target.reset(); toast("Category added"); loadCategories();
+    };
+
+    async function moveCategory(id, dir) {
+      const i = categories.findIndex(c => c.id === id);
+      const j = i + dir;
+      if (j < 0 || j >= categories.length) return;
+      const list = [...categories];
+      [list[i], list[j]] = [list[j], list[i]];
+      // renumber everything so the order is always clean
+      const updates = list.map((c, idx) => db.from("categories").update({ sort_order: idx }).eq("id", c.id));
+      const results = await Promise.all(updates);
+      const err = results.find(r => r.error);
+      if (err) toast(err.error.message);
+      loadCategories();
+    }
+
+    async function deleteCategory(id) {
+      const c = categories.find(x => x.id === id);
+      const count = products.filter(p => p.category_id === id).length;
+      const msg = count
+        ? `Delete "${c.name}"? Its ${count} product(s) will stay in the shop but have no category.`
+        : `Delete "${c.name}"?`;
+      if (!confirm(msg)) return;
+      const { error } = await db.from("categories").delete().eq("id", id);
+      if (error) return toast(error.message);
+      toast("Category deleted");
+      await loadCategories(); loadProducts();
+    }
+
+    // ---------- shared event handlers ----------
     document.addEventListener("click", e => {
-      if (e.target.dataset.edit) editProduct(e.target.dataset.edit);
-      if (e.target.dataset.del) deleteProduct(e.target.dataset.del);
+      const d = e.target.dataset;
+      if (d.edit) editProduct(d.edit);
+      if (d.del) deleteProduct(d.del);
+      if (d.up) moveCategory(d.up, -1);
+      if (d.down) moveCategory(d.down, 1);
+      if (d.delcat) deleteCategory(d.delcat);
+    });
+    document.addEventListener("change", async e => {
+      const d = e.target.dataset;
+      if (d.order) {
+        const { error } = await db.from("orders").update({ status: e.target.value }).eq("id", d.order);
+        toast(error ? error.message : "Order status updated");
+      }
+      if (d.rename) {
+        const name = e.target.value.trim();
+        const c = categories.find(x => x.id === d.rename);
+        if (!name) { e.target.value = c.name; return; }
+        if (name === c.name) return;
+        const { error } = await db.from("categories").update({ name }).eq("id", d.rename);
+        if (error) { e.target.value = c.name; return toast(error.code === "23505" ? "That name is already used" : error.message); }
+        toast("Category renamed"); loadCategories();
+      }
+      if (d.visible) {
+        const { error } = await db.from("categories").update({ active: e.target.checked }).eq("id", d.visible);
+        toast(error ? error.message : (e.target.checked ? "Category visible" : "Category hidden"));
+        loadCategories();
+      }
     });
 
     refreshSession();
