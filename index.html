@@ -5,6 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Shop</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* logo column on the left, products on the right */
+    main.shop-layout {
+      max-width: 1320px; display: grid; grid-template-columns: 240px 1fr;
+      gap: 28px; align-items: start;
+    }
+    .shop-logo { position: sticky; top: 73px; }      /* stays in view while scrolling */
+    .shop-logo img { display: block; width: 100%; height: auto; margin: 0;
+      border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05); }
+    .shop-content { min-width: 0; }
+    footer.shop-footer .inner { max-width: 1288px; }   /* line up with the logo */
+    .shop-content > .toolbar:first-child { margin-top: 0; }   /* top of search = top of logo */
+    @media (max-width: 760px) {
+      main.shop-layout { grid-template-columns: 1fr; gap: 12px; }
+      .shop-logo { position: static; }
+      .shop-logo img { width: 160px; margin: 0 auto; }
+    }
+  </style>
 </head>
 <body>
   <header class="top">
@@ -18,11 +36,16 @@
     <button class="btn primary" id="cartBtn" style="flex:none">Cart (<span id="cartCount">0</span>)</button>
   </header>
 
-  <main>
-    <div class="toolbar"><input id="search" type="search" placeholder="Search products…" /></div>
-    <div class="cats" id="cats"></div>
-    <div id="products" class="grid"></div>
-    <p id="empty" class="muted hidden">No products found.</p>
+  <main class="shop-layout">
+    <aside class="shop-logo" id="sideLogoWrap">
+      <img id="sideLogo" src="logo.jpg" alt="Nook & Novelty" onerror="document.getElementById('sideLogoWrap').classList.add('hidden')" />
+    </aside>
+    <div class="shop-content">
+      <div class="toolbar"><input id="search" type="search" placeholder="Search products…" /></div>
+      <div class="cats" id="cats"></div>
+      <div id="products" class="grid"></div>
+      <p id="empty" class="muted hidden">No products found.</p>
+    </div>
   </main>
 
   <footer class="shop-footer hidden" id="footer"><div class="inner" id="footerInner"></div></footer>
@@ -84,8 +107,9 @@
       $("shopName").textContent = name;
       $("tagline").textContent = settings.tagline || "";
       $("tagline").classList.toggle("hidden", !settings.tagline);
-      $("logo").classList.toggle("hidden", !settings.logo_url);
-      if (settings.logo_url) { $("logo").src = settings.logo_url; $("logo").alt = name; }
+      // big logo on the left: the one uploaded in Business Details, otherwise logo.jpg
+      if (settings.logo_url) { $("sideLogo").src = settings.logo_url; $("sideLogoWrap").classList.remove("hidden"); }
+      $("sideLogo").alt = name;
 
       const wa = (settings.whatsapp || "").replace(/\D/g, "").replace(/^0/, "27");
       const bits = [
