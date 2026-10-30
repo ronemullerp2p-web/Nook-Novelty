@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top">
+    <h1 id="shopName">Shop</h1>
+    <button class="btn primary" id="cartBtn">Cart (<span id="cartCount">0</span>)</button>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Search products…" />
+      <select id="category"><option value="">All categories</option></select>
+    </div>
+    <div id="products" class="grid"></div>
+    <p id="empty" class="muted hidden">No products found.</p>
+  </main>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="cart">
+    <div class="head"><strong>Your cart</strong></div>
+    <div class="content">
+      <div id="cartLines"></div>
+      <form id="checkout" class="hidden">
+        <h3>Checkout</h3>
+        <label>Full name *</label><input name="name" required />
+        <label>Email *</label><input name="email" type="email" required />
+        <label>Phone</label><input name="phone" type="tel" />
+        <label>Delivery address</label><textarea name="address" rows="3"></textarea>
+      </form>
+    </div>
+    <div class="foot">
+      <div class="line" style="border:0"><strong>Total</strong><strong id="cartTotal">R0.00</strong></div>
+      <button class="btn primary" id="checkoutBtn" style="width:100%">Checkout</button>
+      <button class="btn" id="closeCart" style="width:100%;margin-top:8px">Continue shopping</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    const cfg = window.SHOP_CONFIG;
+    const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    const money = n => new Intl.NumberFormat(cfg.LOCALE, { style: "currency", currency: cfg.CURRENCY }).format(n);
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+    document.title = cfg.SHOP_NAME;
+    $("shopName").textContent = cfg.SHOP_NAME;
+
+    let products = [];
+    let cart = loadCart();
+
+    function loadCart() {
+      try { return JSON.parse(localStorage.getItem("cart") || "{}"); } catch { return {}; }
+    }
+    function saveCart() {
+      try { localStorage.setItem("cart", JSON.stringify(cart)); } catch {}
+      renderCart();
+    }
+    function toast(msg) {
+      const t = $("toast"); t.textContent = msg; t.classList.add("show");
+      clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2500);
+    }
+
+    async function loadProducts() {
+      const { data, error } = await db.from("products")
+        .select("id,name,description,price,stock,category,image_url")
+        .eq("active", true).order("created_at", { ascending: false });
+      if (error) { toast("Could not load products: " + error.message); return; }
+      products = data;
+      // drop cart items that are no longer for sale
+      for (const id of Object.keys(cart)) if (!products.some(p => p.id === id)) delete cart[id];
+      try { localStorage.setItem("cart", JSON.stringify(cart)); } catch {}
+      const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+      $("category").innerHTML = '<option value="">All categories</option>' +
+        cats.map(c => `<option>${esc(c)}</option>`).join("");
+      renderProducts();
+      renderCart();
+    }
+
+    function renderProducts() {
+      const q = $("search").value.trim().toLowerCase();
+      const cat = $("category").value;
+      const list = products.filter(p =>
+        (!cat || p.category === cat) &&
+        (!q || p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q)));
+      $("empty").classList.toggle("hidden", list.length > 0);
+      $("products").innerHTML = list.map(p => `
+        <div class="card">
+          <img src="${esc(p.image_url || "")}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />
+          <div class="body">
+            <h3>${esc(p.name)}</h3>
+            <p>${esc(p.description || "")}</p>
+            <div class="line" style="border:0;padding:0">
+              <span class="price">${money(p.price)}</span>
+              <span class="muted" style="font-size:12px">${p.stock > 0 ? p.stock + " in stock" : "Sold out"}</span>
+            </div>
+            <button class="btn primary" data-add="${p.id}" ${p.stock > 0 ? "" : "disabled"}>Add to cart</button>
+          </div>
+        </div>`).join("");
+    }
+
+    function addToCart(id) {
+      const p = products.find(x => x.id === id);
+      const current = cart[id] || 0;
+      if (current >= p.stock) { toast("No more stock available"); return; }
+      cart[id] = current + 1;
+      saveCart();
+      toast(`${p.name} added to cart`);
+    }
+
+    function renderCart() {
+      const ids = Object.keys(cart).filter(id => products.some(p => p.id === id));
+      let total = 0, count = 0;
+      $("cartLines").innerHTML = ids.length ? ids.map(id => {
+        const p = products.find(x => x.id === id);
+        const qty = cart[id];
+        total += p.price * qty; count += qty;
+        return `<div class="line">
+          <div><div>${esc(p.name)}</div><div class="muted" style="font-size:13px">${money(p.price)}</div></div>
+          <div class="qty">
+            <button class="btn" data-dec="${id}">−</button><span>${qty}</span>
+            <button class="btn" data-inc="${id}">+</button>
+          </div></div>`;
+      }).join("") : '<p class="muted">Your cart is empty.</p>';
+      $("cartCount").textContent = count;
+      $("cartTotal").textContent = money(total);
+      $("checkoutBtn").disabled = count === 0;
+    }
+
+    function openCart(open) {
+      $("cart").classList.toggle("open", open);
+      $("overlay").classList.toggle("show", open);
+      if (!open) { $("checkout").classList.add("hidden"); $("checkoutBtn").textContent = "Checkout"; }
+    }
+
+    async function placeOrder() {
+      const form = $("checkout");
+      if (form.classList.contains("hidden")) {
+        form.classList.remove("hidden");
+        $("checkoutBtn").textContent = "Place order";
+        form.querySelector("input").focus();
+        return;
+      }
+      if (!form.reportValidity()) return;
+      const f = Object.fromEntries(new FormData(form));
+      const items = Object.entries(cart).map(([id, qty]) => ({ id, qty }));
+      $("checkoutBtn").disabled = true;
+      const { data, error } = await db.rpc("place_order", { p_customer: f, p_items: items });
+      $("checkoutBtn").disabled = false;
+      if (error) { toast(error.message); return; }
+      cart = {}; saveCart(); form.reset(); openCart(false);
+      toast("Order placed! Reference: " + String(data).slice(0, 8).toUpperCase());
+      loadProducts();
+    }
+
+    document.addEventListener("click", e => {
+      const t = e.target;
+      if (t.dataset.add) addToCart(t.dataset.add);
+      if (t.dataset.inc) addToCart(t.dataset.inc);
+      if (t.dataset.dec) { cart[t.dataset.dec]--; if (cart[t.dataset.dec] <= 0) delete cart[t.dataset.dec]; saveCart(); }
+    });
+    $("search").addEventListener("input", renderProducts);
+    $("category").addEventListener("change", renderProducts);
+    $("cartBtn").onclick = () => openCart(true);
+    $("closeCart").onclick = () => openCart(false);
+    $("overlay").onclick = () => openCart(false);
+    $("checkoutBtn").onclick = placeOrder;
+
+    loadProducts();
+  </script>
+</body>
+</html>

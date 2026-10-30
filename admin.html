@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Shop Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top">
+    <h1>Shop Admin</h1>
+    <div>
+      <span id="who" class="muted" style="font-size:13px;margin-right:8px"></span>
+      <button class="btn hidden" id="logoutBtn">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LOGIN -->
+    <div id="loginView" class="panel" style="max-width:380px;margin:40px auto">
+      <h2 style="margin-top:0">Team login</h2>
+      <form id="loginForm">
+        <label>Email</label><input name="email" type="email" required autocomplete="username" />
+        <label>Password</label><input name="password" type="password" required autocomplete="current-password" />
+        <button class="btn primary" style="width:100%;margin-top:16px">Log in</button>
+      </form>
+    </div>
+
+    <!-- APP -->
+    <div id="appView" class="hidden">
+      <div class="tabs">
+        <button class="btn active" data-tab="productsTab">Products</button>
+        <button class="btn" data-tab="ordersTab">Orders</button>
+      </div>
+
+      <!-- PRODUCTS TAB -->
+      <section id="productsTab">
+        <div class="panel" style="margin-bottom:16px">
+          <h3 style="margin-top:0" id="formTitle">Add new product</h3>
+          <form id="productForm">
+            <input type="hidden" name="id" />
+            <div class="row2">
+              <div><label>Name *</label><input name="name" required /></div>
+              <div><label>Category</label><input name="category" list="catList" /><datalist id="catList"></datalist></div>
+            </div>
+            <label>Description</label><textarea name="description" rows="3"></textarea>
+            <div class="row2">
+              <div><label>Price *</label><input name="price" type="number" step="0.01" min="0" required /></div>
+              <div><label>Stock *</label><input name="stock" type="number" step="1" min="0" required value="0" /></div>
+            </div>
+            <label>Image</label><input name="image" type="file" accept="image/*" />
+            <img id="preview" class="hidden" style="width:96px;height:96px;object-fit:cover;border-radius:8px;margin-top:8px" alt="" />
+            <label style="display:flex;gap:8px;align-items:center;color:var(--text)">
+              <input name="active" type="checkbox" checked style="width:auto" /> Visible in shop
+            </label>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn primary" id="saveBtn">Save product</button>
+              <button type="button" class="btn hidden" id="cancelEdit">Cancel edit</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="panel">
+          <div class="toolbar"><input id="productSearch" type="search" placeholder="Search products…" /></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th></th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
+              <tbody id="productRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ORDERS TAB -->
+      <section id="ordersTab" class="hidden">
+        <div class="panel">
+          <div class="toolbar">
+            <select id="statusFilter">
+              <option value="">All statuses</option>
+              <option>new</option><option>paid</option><option>shipped</option>
+              <option>completed</option><option>cancelled</option>
+            </select>
+            <button class="btn" id="refreshOrders">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Ref</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
+              <tbody id="orderRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    const cfg = window.SHOP_CONFIG;
+    const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    const BUCKET = "product-images";
+    const money = n => new Intl.NumberFormat(cfg.LOCALE, { style: "currency", currency: cfg.CURRENCY }).format(n);
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    function toast(msg) {
+      const t = $("toast"); t.textContent = msg; t.classList.add("show");
+      clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+    let products = [];
+
+    // ---------- AUTH ----------
+    async function refreshSession() {
+      const { data: { session } } = await db.auth.getSession();
+      const loggedIn = !!session;
+      $("loginView").classList.toggle("hidden", loggedIn);
+      $("appView").classList.toggle("hidden", !loggedIn);
+      $("logoutBtn").classList.toggle("hidden", !loggedIn);
+      $("who").textContent = loggedIn ? session.user.email : "";
+      if (loggedIn) { loadProducts(); loadOrders(); }
+    }
+    $("loginForm").onsubmit = async e => {
+      e.preventDefault();
+      const f = Object.fromEntries(new FormData(e.target));
+      const { error } = await db.auth.signInWithPassword({ email: f.email, password: f.password });
+      if (error) return toast(error.message);
+      e.target.reset(); refreshSession();
+    };
+    $("logoutBtn").onclick = async () => { await db.auth.signOut(); refreshSession(); };
+
+    // ---------- TABS ----------
+    document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
+      document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("active", x === b));
+      ["productsTab", "ordersTab"].forEach(id => $(id).classList.toggle("hidden", id !== b.dataset.tab));
+    });
+
+    // ---------- PRODUCTS ----------
+    async function loadProducts() {
+      const { data, error } = await db.from("products").select("*").order("created_at", { ascending: false });
+      if (error) return toast(error.message);
+      products = data;
+      $("catList").innerHTML = [...new Set(data.map(p => p.category).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("");
+      renderProducts();
+    }
+    function renderProducts() {
+      const q = $("productSearch").value.trim().toLowerCase();
+      $("productRows").innerHTML = products
+        .filter(p => !q || p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q))
+        .map(p => `<tr>
+          <td>${p.image_url ? `<img src="${esc(p.image_url)}" alt="">` : ""}</td>
+          <td>${esc(p.name)}</td><td>${esc(p.category || "")}</td>
+          <td>${money(p.price)}</td><td>${p.stock}</td>
+          <td><span class="badge">${p.active ? "Visible" : "Hidden"}</span></td>
+          <td style="white-space:nowrap">
+            <button class="btn" data-edit="${p.id}">Edit</button>
+            <button class="btn danger" data-del="${p.id}">Delete</button>
+          </td></tr>`).join("") || `<tr><td colspan="7" class="muted">No products yet — add your first one above.</td></tr>`;
+    }
+    $("productSearch").oninput = renderProducts;
+
+    const form = $("productForm");
+    form.image.onchange = () => {
+      const file = form.image.files[0];
+      $("preview").classList.toggle("hidden", !file);
+      if (file) $("preview").src = URL.createObjectURL(file);
+    };
+
+    function resetForm() {
+      form.reset(); form.id.value = ""; form.active.checked = true;
+      $("preview").classList.add("hidden");
+      $("formTitle").textContent = "Add new product";
+      $("cancelEdit").classList.add("hidden");
+    }
+    $("cancelEdit").onclick = resetForm;
+
+    function editProduct(id) {
+      const p = products.find(x => x.id === id);
+      form.id.value = p.id; form.name.value = p.name; form.category.value = p.category || "";
+      form.description.value = p.description || ""; form.price.value = p.price; form.stock.value = p.stock;
+      form.active.checked = p.active;
+      $("preview").classList.toggle("hidden", !p.image_url);
+      if (p.image_url) $("preview").src = p.image_url;
+      $("formTitle").textContent = "Edit product";
+      $("cancelEdit").classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function uploadImage(file) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type });
+      if (error) throw error;
+      const { data } = db.storage.from(BUCKET).getPublicUrl(path);
+      return { path, url: data.publicUrl };
+    }
+
+    form.onsubmit = async e => {
+      e.preventDefault();
+      $("saveBtn").disabled = true;
+      try {
+        const id = form.id.value;
+        const existing = products.find(p => p.id === id);
+        const row = {
+          name: form.name.value.trim(),
+          category: form.category.value.trim() || null,
+          description: form.description.value.trim() || null,
+          price: Number(form.price.value),
+          stock: parseInt(form.stock.value, 10),
+          active: form.active.checked,
+        };
+        const file = form.image.files[0];
+        if (file) {
+          if (file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5 MB");
+          const img = await uploadImage(file);
+          row.image_url = img.url; row.image_path = img.path;
+        }
+        const { error } = id
+          ? await db.from("products").update(row).eq("id", id)
+          : await db.from("products").insert(row);
+        if (error) throw error;
+        // remove the old image if it was replaced
+        if (file && existing?.image_path) await db.storage.from(BUCKET).remove([existing.image_path]);
+        toast(id ? "Product updated" : "Product added");
+        resetForm(); loadProducts();
+      } catch (err) {
+        toast(err.message);
+      } finally {
+        $("saveBtn").disabled = false;
+      }
+    };
+
+    async function deleteProduct(id) {
+      const p = products.find(x => x.id === id);
+      if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+      const { error } = await db.from("products").delete().eq("id", id);
+      if (error) return toast(error.message);
+      if (p.image_path) await db.storage.from(BUCKET).remove([p.image_path]);
+      toast("Product deleted"); loadProducts();
+    }
+
+    // ---------- ORDERS ----------
+    async function loadOrders() {
+      let q = db.from("orders").select("*").order("created_at", { ascending: false }).limit(200);
+      const s = $("statusFilter").value;
+      if (s) q = q.eq("status", s);
+      const { data, error } = await q;
+      if (error) return toast(error.message);
+      const statuses = ["new", "paid", "shipped", "completed", "cancelled"];
+      $("orderRows").innerHTML = data.map(o => `<tr>
+        <td style="white-space:nowrap">${new Date(o.created_at).toLocaleString(cfg.LOCALE)}</td>
+        <td>${o.id.slice(0, 8).toUpperCase()}</td>
+        <td>${esc(o.customer_name)}<div class="muted" style="font-size:12px">${esc(o.email)}${o.phone ? " · " + esc(o.phone) : ""}</div>
+            ${o.address ? `<div class="muted" style="font-size:12px">${esc(o.address)}</div>` : ""}</td>
+        <td style="font-size:13px">${o.items.map(i => `${i.qty} × ${esc(i.name)}`).join("<br>")}</td>
+        <td>${money(o.total)}</td>
+        <td><select data-order="${o.id}">${statuses.map(s => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select></td>
+      </tr>`).join("") || `<tr><td colspan="6" class="muted">No orders yet.</td></tr>`;
+    }
+    $("statusFilter").onchange = loadOrders;
+    $("refreshOrders").onclick = loadOrders;
+
+    document.addEventListener("change", async e => {
+      const id = e.target.dataset.order;
+      if (!id) return;
+      const { error } = await db.from("orders").update({ status: e.target.value }).eq("id", id);
+      toast(error ? error.message : "Order status updated");
+    });
+    document.addEventListener("click", e => {
+      if (e.target.dataset.edit) editProduct(e.target.dataset.edit);
+      if (e.target.dataset.del) deleteProduct(e.target.dataset.del);
+    });
+
+    refreshSession();
+  </script>
+</body>
+</html>
