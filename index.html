@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* logo centred in the space left of the products; products keep their position */
+    main.shop-layout {
+      --left: max(272px, calc(50vw - 376px));          /* page edge -> start of search box */
+      max-width: none; padding: 16px 0;
+      display: grid; grid-template-columns: var(--left) minmax(0, 1020px) minmax(16px, 1fr);
+      align-items: start;
+    }
+    .shop-logo { grid-column: 1; justify-self: center; width: 240px; position: sticky; top: 73px; }
+    .shop-logo img { display: block; width: 100%; height: auto; margin: 0;
+      border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05); }
+    .shop-content { grid-column: 2; min-width: 0; }
+    .shop-content > .toolbar:first-child { margin-top: 0; }   /* top of search = top of logo */
+    @media (max-width: 760px) {
+      main.shop-layout { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
+      .shop-logo, .shop-content { grid-column: 1; }
+      .shop-logo { position: static; width: 160px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img id="logo" class="hidden" alt="" />
+      <div style="min-width:0">
+        <h1 id="shopName">Shop</h1>
+        <div class="tagline hidden" id="tagline"></div>
+      </div>
+    </div>
+    <button class="btn primary" id="cartBtn" style="flex:none">Cart (<span id="cartCount">0</span>)</button>
+  </header>
+
+  <main class="shop-layout">
+    <aside class="shop-logo" id="sideLogoWrap">
+      <img id="sideLogo" src="logo.jpg" alt="Nook & Novelty" onerror="document.getElementById('sideLogoWrap').classList.add('hidden')" />
+    </aside>
+    <div class="shop-content">
+      <div class="toolbar"><input id="search" type="search" placeholder="Search products…" /></div>
+      <div class="cats" id="cats"></div>
+      <div id="products" class="grid"></div>
+      <p id="empty" class="muted hidden">No products found.</p>
+    </div>
+  </main>
+
+  <footer class="shop-footer hidden" id="footer"><div class="inner" id="footerInner"></div></footer>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="cart">
+    <div class="head"><strong id="drawerTitle">Your cart</strong></div>
+    <div class="content">
+      <div id="cartView">
+        <div id="cartLines"></div>
+        <form id="checkout" class="hidden">
+          <h3>Checkout</h3>
+          <label>Full name *</label><input name="name" required />
+          <label>Email *</label><input name="email" type="email" required />
+          <label>Phone</label><input name="phone" type="tel" />
+          <label>Delivery address</label><textarea name="address" rows="3"></textarea>
+        </form>
+      </div>
+      <div id="doneView" class="hidden"></div>
+    </div>
+    <div class="foot" id="cartFoot">
+      <div class="line" style="border:0"><strong>Total</strong><strong id="cartTotal">R0.00</strong></div>
+      <button class="btn primary" id="checkoutBtn" style="width:100%">Checkout</button>
+      <button class="btn" id="closeCart" style="width:100%;margin-top:8px">Continue shopping</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    const cfg = window.SHOP_CONFIG;
+    const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    const money = n => new Intl.NumberFormat(cfg.LOCALE, { style: "currency", currency: cfg.CURRENCY }).format(n);
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+    let products = [];
+    let categories = [];
+    let settings = {};
+    let activeCat = "";
+    let cart = loadCart();
+
+    function loadCart() { try { return JSON.parse(localStorage.getItem("cart") || "{}"); } catch { return {}; } }
+    function storeCart() { try { localStorage.setItem("cart", JSON.stringify(cart)); } catch {} }
+    function saveCart() { storeCart(); renderCart(); }
+    function toast(msg) {
+      const t = $("toast"); t.textContent = msg; t.classList.add("show");
+      clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2500);
+    }
+
+    // ---------- BUSINESS DETAILS ----------
+    async function loadSettings() {
+      const { data } = await db.from("settings").select("data").eq("id", 1).maybeSingle();
+      settings = data?.data || {};
+      const name = settings.business_name || cfg.SHOP_NAME || "Shop";
+      document.title = settings.tagline ? `${name} — ${settings.tagline}` : name;
+      $("shopName").textContent = name;
+      $("tagline").textContent = settings.tagline || "";
+      $("tagline").classList.toggle("hidden", !settings.tagline);
+      // big logo on the left: the one uploaded in Business Details, otherwise logo.jpg
+      if (settings.logo_url) { $("sideLogo").src = settings.logo_url; $("sideLogoWrap").classList.remove("hidden"); }
+      $("sideLogo").alt = name;
+
+      const wa = (settings.whatsapp || "").replace(/\D/g, "").replace(/^0/, "27");
+      const bits = [
+        settings.email && `<span>✉ <a href="mailto:${esc(settings.email)}">${esc(settings.email)}</a></span>`,
+        settings.phone && `<span>☎ <a href="tel:${esc(settings.phone)}">${esc(settings.phone)}</a></span>`,
+        wa && `<span>WhatsApp: <a href="https://wa.me/${wa}" target="_blank" rel="noopener">${esc(settings.whatsapp)}</a></span>`,
+        settings.website && `<span><a href="${esc(settings.website)}" target="_blank" rel="noopener">${esc(settings.website.replace(/^https?:\/\//, ""))}</a></span>`,
+        settings.address && `<span>${esc(settings.address).replace(/\n/g, ", ")}</span>`,
+        settings.reg_no && `<span>Reg: ${esc(settings.reg_no)}</span>`,
+        settings.vat_no && `<span>VAT: ${esc(settings.vat_no)}</span>`,
+      ].filter(Boolean);
+      bits.push(`<span>© ${new Date().getFullYear()} ${esc(name)}</span>`);
+      $("footerInner").innerHTML = bits.join("");
+      $("footer").classList.remove("hidden");
+    }
+
+    // ---------- CATEGORIES & PRODUCTS ----------
+    async function loadCatalog() {
+      const [cats, prods] = await Promise.all([
+        db.from("categories").select("id,name").eq("active", true).order("sort_order").order("name"),
+        db.from("products").select("id,name,description,price,stock,category_id,image_url")
+          .eq("active", true).order("created_at", { ascending: false }),
+      ]);
+      if (prods.error) { toast("Could not load products: " + prods.error.message); return; }
+      categories = cats.data || [];
+      products = prods.data;
+      for (const id of Object.keys(cart)) if (!products.some(p => p.id === id)) delete cart[id];
+      storeCart();
+      if (activeCat && !categories.some(c => c.id === activeCat)) activeCat = "";
+      renderCats(); renderProducts(); renderCart();
+    }
+
+    function renderCats() {
+      // only show categories that actually have products
+      const used = categories.filter(c => products.some(p => p.category_id === c.id));
+      $("cats").classList.toggle("hidden", used.length === 0);
+      $("cats").innerHTML = `<button class="btn ${activeCat ? "" : "active"}" data-cat="">All</button>` +
+        used.map(c => `<button class="btn ${activeCat === c.id ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("");
+    }
+
+    function renderProducts() {
+      const q = $("search").value.trim().toLowerCase();
+      const list = products.filter(p =>
+        (!activeCat || p.category_id === activeCat) &&
+        (!q || p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q)));
+      $("empty").classList.toggle("hidden", list.length > 0);
+      $("products").innerHTML = list.map(p => `
+        <div class="card">
+          <img src="${esc(p.image_url || "")}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />
+          <div class="body">
+            <h3>${esc(p.name)}</h3>
+            <p>${esc(p.description || "")}</p>
+            <div class="line" style="border:0;padding:0">
+              <span class="price">${money(p.price)}</span>
+              <span class="muted" style="font-size:12px">${p.stock > 0 ? p.stock + " in stock" : "Sold out"}</span>
+            </div>
+            <button class="btn primary" data-add="${p.id}" ${p.stock > 0 ? "" : "disabled"}>Add to cart</button>
+          </div>
+        </div>`).join("");
+    }
+
+    // ---------- CART ----------
+    function addToCart(id) {
+      const p = products.find(x => x.id === id);
+      const current = cart[id] || 0;
+      if (current >= p.stock) { toast("No more stock available"); return; }
+      cart[id] = current + 1;
+      saveCart();
+      toast(`${p.name} added to cart`);
+    }
+
+    function renderCart() {
+      const ids = Object.keys(cart).filter(id => products.some(p => p.id === id));
+      let total = 0, count = 0;
+      $("cartLines").innerHTML = ids.length ? ids.map(id => {
+        const p = products.find(x => x.id === id);
+        const qty = cart[id];
+        total += p.price * qty; count += qty;
+        return `<div class="line">
+          <div><div>${esc(p.name)}</div><div class="muted" style="font-size:13px">${money(p.price)}</div></div>
+          <div class="qty">
+            <button class="btn" data-dec="${id}">−</button><span>${qty}</span>
+            <button class="btn" data-inc="${id}">+</button>
+          </div></div>`;
+      }).join("") : '<p class="muted">Your cart is empty.</p>';
+      $("cartCount").textContent = count;
+      $("cartTotal").textContent = money(total);
+      $("checkoutBtn").disabled = count === 0;
+    }
+
+    function openCart(open) {
+      $("cart").classList.toggle("open", open);
+      $("overlay").classList.toggle("show", open);
+      if (!open) {
+        $("checkout").classList.add("hidden");
+        $("checkoutBtn").textContent = "Checkout";
+        $("cartView").classList.remove("hidden");
+        $("doneView").classList.add("hidden");
+        $("cartFoot").querySelector(".line").classList.remove("hidden");
+        $("checkoutBtn").classList.remove("hidden");
+        $("closeCart").textContent = "Continue shopping";
+        $("drawerTitle").textContent = "Your cart";
+      }
+    }
+
+    function showOrderDone(ref, total, email) {
+      const s = settings;
+      const hasBank = s.bank_name || s.account_number;
+      const row = (k, v) => v ? `<div><span class="muted">${k}</span><strong>${esc(v)}</strong></div>` : "";
+      $("doneView").innerHTML = `
+        <h3 style="margin-top:0">Thank you for your order!</h3>
+        <p>Your order number is <strong>${ref}</strong>. We'll be in touch at ${esc(email)}.</p>
+        <p>Amount due: <strong>${money(total)}</strong></p>
+        ${hasBank ? `
+          <h4 style="margin:16px 0 6px">Pay by EFT</h4>
+          <div class="eft">
+            ${row("Bank", s.bank_name)}${row("Account holder", s.account_name)}
+            ${row("Account number", s.account_number)}${row("Branch code", s.branch_code)}
+            ${row("Account type", s.account_type)}${row("Reference", ref)}
+          </div>` : ""}
+        ${s.payment_note ? `<p class="muted" style="font-size:14px;white-space:pre-line">${esc(s.payment_note)}</p>` : ""}`;
+      $("cartView").classList.add("hidden");
+      $("doneView").classList.remove("hidden");
+      $("cartFoot").querySelector(".line").classList.add("hidden");
+      $("checkoutBtn").classList.add("hidden");
+      $("closeCart").textContent = "Back to shop";
+      $("drawerTitle").textContent = "Order placed";
+    }
+
+    async function placeOrder() {
+      const form = $("checkout");
+      if (form.classList.contains("hidden")) {
+        form.classList.remove("hidden");
+        $("checkoutBtn").textContent = "Place order";
+        form.querySelector("input").focus();
+        return;
+      }
+      if (!form.reportValidity()) return;
+      const f = Object.fromEntries(new FormData(form));
+      const items = Object.entries(cart).map(([id, qty]) => ({ id, qty }));
+      const total = items.reduce((t, i) => t + products.find(p => p.id === i.id).price * i.qty, 0);
+      $("checkoutBtn").disabled = true;
+      const { data, error } = await db.rpc("place_order", { p_customer: f, p_items: items });
+      $("checkoutBtn").disabled = false;
+      if (error) { toast(error.message); return; }
+      const ref = String(data).slice(0, 8).toUpperCase();
+      cart = {}; saveCart(); form.reset();
+      showOrderDone(ref, total, f.email);
+      loadCatalog();
+    }
+
+    // ---------- EVENTS ----------
+    document.addEventListener("click", e => {
+      const d = e.target.dataset;
+      if (d.add) addToCart(d.add);
+      if (d.inc) addToCart(d.inc);
+      if (d.dec) { cart[d.dec]--; if (cart[d.dec] <= 0) delete cart[d.dec]; saveCart(); }
+      if (d.cat !== undefined) { activeCat = d.cat; renderCats(); renderProducts(); }
+    });
+    $("search").addEventListener("input", renderProducts);
+    $("cartBtn").onclick = () => openCart(true);
+    $("closeCart").onclick = () => openCart(false);
+    $("overlay").onclick = () => openCart(false);
+    $("checkoutBtn").onclick = placeOrder;
+
+    loadSettings();
+    loadCatalog();
+  </script>
+</body>
+</html>
