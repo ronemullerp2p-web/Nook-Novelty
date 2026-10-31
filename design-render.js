@@ -287,6 +287,98 @@ function createDesignRender() {
       return top + row.h;
     }
 
+    // ---------- reports (dashboard): business header + title + optional bar chart + table ----------
+    // opts.report = { title, subtitle, chart: { bars: [{ label, sub, value, text }] }, summary,
+    //                 columns: [{ label, w (share of width), align }], rows: [[cell, …]], totals: [cell, …] }
+    async function drawReport() {
+      const r = opts.report || {};
+      const tEl = (invoice.elements || []).find((e) => e.type === "table") || {};
+      const accent = tEl.headerBg || "#1f6f5c", headText = tEl.headerColor || "#ffffff";
+      const stripe = tEl.stripe && tEl.stripe !== "none" ? tEl.stripe : null, lineCol = tEl.lineColor || "#e3e1dc";
+      const ink = col("#1d1d1f"), muted = col("#6b6b70");
+      const reg = await fontFor({ font: "helvetica" }), bold = await fontFor({ font: "helvetica" }, true);
+      const X = 48, RW = W - 96, top0 = (Number(header.height) || 135) + 18, limit = H - 60;
+      const text = (p, s, x, y, size, f, c) => p.drawText(safe(s), { x, y: H - y - size * 0.85, size, font: f, color: c });
+
+      let y = top0;
+      text(page, r.title || "Report", X, y, 16, bold, ink); y += 22;
+      if (r.subtitle) { text(page, r.subtitle, X, y, 9.5, reg, muted); y += 16; }
+      y += 6;
+
+      // bar chart
+      if (r.chart && r.chart.bars && r.chart.bars.length) {
+        const bars = r.chart.bars, ch = 190, gap = 12;
+        const bw = (RW - gap * (bars.length - 1)) / bars.length, max = Math.max(1, ...bars.map((b) => b.value || 0));
+        const base = y + 16 + ch;
+        bars.forEach((b, i) => {
+          const bx = X + i * (bw + gap), bh = (b.value || 0) / max * ch;
+          const w = Math.min(bw, 56), cx = bx + (bw - w) / 2;
+          if (bh > 0) page.drawRectangle({ x: cx, y: H - base, width: w, height: Math.max(bh, 1.5), color: col(b.highlight ? "#14493c" : accent) });
+          const lbl = safe(b.text || "");
+          if (lbl) page.drawText(lbl, { x: bx + (bw - reg.widthOfTextAtSize(lbl, 8)) / 2, y: H - base + bh + 4, size: 8, font: reg, color: ink });
+          const l1 = safe(b.label || ""), l2 = safe(b.sub || "");
+          page.drawText(l1, { x: bx + (bw - bold.widthOfTextAtSize(l1, 8.5)) / 2, y: H - base - 13, size: 8.5, font: bold, color: ink });
+          l2.split("\n").forEach((s, k) => page.drawText(s, { x: bx + (bw - reg.widthOfTextAtSize(s, 8)) / 2, y: H - base - 24 - k * 10, size: 8, font: reg, color: muted }));
+        });
+        page.drawLine({ start: { x: X, y: H - base }, end: { x: X + RW, y: H - base }, thickness: 0.7, color: col(lineCol) });
+        y = base + 46;
+      }
+      if (r.summary) { text(page, r.summary, X, y, 10, bold, ink); y += 22; }
+
+      // table
+      const cols = r.columns || [];
+      if (cols.length) {
+        const share = cols.reduce((t, c) => t + (c.w || 1), 0);
+        const widths = cols.map((c) => RW * (c.w || 1) / share);
+        const xs = widths.map((_, i) => X + widths.slice(0, i).reduce((t, w) => t + w, 0));
+        const size = 9, lh = size * 1.3, pad = 5, hh = 22;
+        const cellLines = (s, i, f) => wrapLines(safe(s), (t) => f.widthOfTextAtSize(t, size), widths[i] - pad * 2);
+        const drawRow = (cells, f, top, h, color) => cells.forEach((cell, i) => {
+          cellLines(cell, i, f).forEach((ln, k) => {
+            const tw = f.widthOfTextAtSize(ln, size);
+            const x = cols[i].align === "right" ? xs[i] + widths[i] - pad - tw : xs[i] + pad;
+            page.drawText(ln, { x, y: H - (top + pad + k * lh + size * 0.85), size, font: f, color });
+          });
+        });
+        const head = () => {
+          page.drawRectangle({ x: X, y: H - (y + hh), width: RW, height: hh, color: col(accent) });
+          cols.forEach((c, i) => {
+            const s = safe(c.label), tw = bold.widthOfTextAtSize(s, size);
+            const x = c.align === "right" ? xs[i] + widths[i] - pad - tw : xs[i] + pad;
+            page.drawText(s, { x, y: H - (y + (hh - size) / 2 + size * 0.85), size, font: bold, color: col(headText) });
+          });
+          y += hh;
+        };
+        if (y + hh + 30 > limit) { page = await newPage(); y = top0; }
+        head();
+        const rows = r.rows || [];
+        if (!rows.length) { text(page, r.empty || "Nothing for this day.", X + pad, y + 8, 9.5, reg, muted); y += 28; }
+        for (let n = 0; n < rows.length; n++) {
+          const h = Math.max(...rows[n].map((c, i) => cellLines(c, i, reg).length)) * lh + pad * 2 - 2;
+          if (y + h > limit) { page = await newPage(); y = top0; head(); }
+          if (stripe && n % 2) page.drawRectangle({ x: X, y: H - (y + h), width: RW, height: h, color: col(stripe) });
+          drawRow(rows[n], reg, y, h, ink);
+          page.drawLine({ start: { x: X, y: H - (y + h) }, end: { x: X + RW, y: H - (y + h) }, thickness: 0.5, color: col(lineCol) });
+          y += h;
+        }
+        if (r.totals && rows.length) {
+          const h = Math.max(...r.totals.map((c, i) => cellLines(c, i, bold).length)) * lh + pad * 2;
+          if (y + h > limit) { page = await newPage(); y = top0; head(); }
+          drawRow(r.totals, bold, y, h, ink);
+          page.drawLine({ start: { x: X, y: H - (y + h) }, end: { x: X + RW, y: H - (y + h) }, thickness: 1, color: col(accent) });
+          y += h;
+        }
+      }
+      // footer on every page
+      const printed = "Printed " + longDate(new Date());
+      pages.forEach((p, i) => {
+        const pg = `Page ${i + 1} of ${pages.length}`;
+        p.drawLine({ start: { x: X, y: 44 }, end: { x: X + RW, y: 44 }, thickness: 0.5, color: col(lineCol) });
+        p.drawText(safe((r.title || "") + " · " + printed), { x: X, y: 30, size: 8, font: reg, color: muted });
+        p.drawText(pg, { x: X + RW - reg.widthOfTextAtSize(pg, 8), y: 30, size: 8, font: reg, color: muted });
+      });
+    }
+
     async function newPage() {
       const p = pdf.addPage([W, H]);
       pages.push(p);
@@ -296,7 +388,9 @@ function createDesignRender() {
     }
 
     let page = await newPage();
-    if (mode !== "letterhead") {
+    if (mode === "report") {
+      await drawReport();
+    } else if (mode !== "letterhead") {
       const body = (invoice.elements || []).filter((e) => visible(e, data.paid));
       const pinned = body.filter((e) => e.pin);
       const flowEls = body.filter((e) => !e.pin);
