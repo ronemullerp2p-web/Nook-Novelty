@@ -213,15 +213,17 @@ function createDesignRender() {
       const n = parseInt(h, 16) || 0;
       return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
     };
-    let logoImg;
-    async function getLogo() {
-      if (logoImg !== undefined) return logoImg;
-      logoImg = null;
+    // images: an uploaded picture (el.src) or, if none, the business logo; each loaded once
+    const imgCache = {};
+    async function getImage(src) {
+      const key = src || "__logo";
+      if (key in imgCache) return imgCache[key];
+      imgCache[key] = null;
       try {
-        const b = opts.loadImage ? await opts.loadImage() : null;
-        if (b && b.length) logoImg = b[0] === 0x89 ? await pdf.embedPng(b) : await pdf.embedJpg(b);
-      } catch (_) { /* no logo */ }
-      return logoImg;
+        const b = opts.loadImage ? await opts.loadImage(src || null) : null;
+        if (b && b.length) imgCache[key] = b[0] === 0x89 ? await pdf.embedPng(b) : await pdf.embedJpg(b);
+      } catch (_) { /* image couldn't be loaded */ }
+      return imgCache[key];
     }
 
     const pages = [];
@@ -254,7 +256,7 @@ function createDesignRender() {
           ...(hasFill ? { color: col(el.fill) } : {}),
           ...(bw ? { borderColor: col(el.borderColor), borderWidth: bw } : {}) });
       } else if (el.type === "logo") {
-        const img = await getLogo();
+        const img = await getImage(el.src);
         if (!img) return;
         const s = Math.min(el.w / img.width, el.h / img.height);
         const dw = img.width * s, dh = img.height * s;

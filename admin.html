@@ -612,7 +612,7 @@
             <select id="dzAddField" title="Add a box with a live field"><option value="">＋ Field…</option></select>
             <button class="btn" data-dzadd="line" title="Add a line">＋ Line</button>
             <button class="btn" data-dzadd="box" title="Add a box">＋ Box</button>
-            <button class="btn" data-dzadd="logo" title="Add your logo">＋ Logo</button>
+            <button class="btn" data-dzadd="logo" title="Add your logo or a picture">＋ Logo / Image</button>
             <button class="btn" data-dzadd="table" id="dzAddTable" title="Add the list of items">＋ Items table</button>
           </div>
           <div class="dz-group">
@@ -865,8 +865,8 @@
     // 4.1 "Invoiced" status, set automatically when an invoice is sent · 4.2 email history per order
     // 4.3 removed the "Sent" line under the invoice buttons
     // 5.0 Custom Design: Business Header + Invoice designer (A4), invoices use the design
-    // 5.1 text alignment buttons + position on page (left / centre / right)
-    const APP_VERSION = "5.1";
+    // 5.1 text alignment buttons + position on page (left / centre / right) · 5.2 upload a picture for logo items
+    const APP_VERSION = "5.2";
     const LOGIN_DOMAIN = "nooknovelty.local";   // hidden login address for usernames (must match manage-users)
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
@@ -1977,7 +1977,7 @@
         handles = '<div class="dz-h" data-handle="se"></div>';
       } else if (el.type === "logo") {
         style = pos(el.x, el.y, el.w, el.h);
-        inner = `<img src="${esc(settings.logo_url || "logo.jpg")}" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;pointer-events:none" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Logo',style:'width:100%;height:100%;display:grid;place-items:center;border:1px dashed #aaa;color:#888;font:12px sans-serif'}))">`;
+        inner = `<img src="${esc(el.src || settings.logo_url || "logo.jpg")}" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;pointer-events:none" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Logo',style:'width:100%;height:100%;display:grid;place-items:center;border:1px dashed #aaa;color:#888;font:12px sans-serif'}))">`;
         handles = '<div class="dz-h" data-handle="se"></div>';
       } else if (el.type === "table") {
         const size = Number(el.size) || 10, hh = DR.tableHeaderHeight(el), C = DR.TABLE_COLS;
@@ -2179,7 +2179,7 @@
         return;
       }
       const inv = dz.mode === "invoice";
-      let h = `<h3>${{ text: "Text box", line: "Line", box: "Box", logo: "Logo", table: "Items table" }[el.type]}</h3>`;
+      let h = `<h3>${{ text: "Text box", line: "Line", box: "Box", logo: "Logo / image", table: "Items table" }[el.type]}</h3>`;
       if (el.type === "text") {
         h += `<label>Text <span style="font-weight:400">— type, or insert a field</span></label>
               <textarea data-prop="text" rows="4">${esc(el.text || "")}</textarea>
@@ -2204,8 +2204,18 @@
               ${P.num("X", "x", el.x, 1)}${P.num("Y", "y", el.y, 1)}</div>
               ${P.chk("No background (border only)", "nofill", el.fill === "none")}`;
       } else if (el.type === "logo") {
-        h += `<div class="grid2">${P.num("Width", "w", el.w, 1, 8)}${P.num("Height", "h", el.h, 1, 8)}${P.num("X", "x", el.x, 1)}${P.num("Y", "y", el.y, 1)}</div>
-              <p class="dz-tip">Uses the logo from Settings → Business Details (or the shop logo). It keeps its shape inside this box.</p>`;
+        h += `<label>Picture</label>
+              <div style="display:flex;gap:10px;align-items:center">
+                <img src="${esc(el.src || settings.logo_url || "logo.jpg")}" alt="" style="width:56px;height:56px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff">
+                <div class="muted" style="font-size:12px">${el.src ? "Uploaded picture" : "Business logo (Settings → Business Details)"}</div>
+              </div>
+              <div class="row-btns" style="margin-top:8px">
+                <button class="btn" type="button" id="dzImgUpload">Upload image…</button>
+                ${el.src ? '<button class="btn" type="button" id="dzImgReset">Use business logo</button>' : ""}
+              </div>
+              <input type="file" id="dzImgFile" accept="image/*" class="hidden">
+              <div class="grid2">${P.num("Width", "w", el.w, 1, 8)}${P.num("Height", "h", el.h, 1, 8)}${P.num("X", "x", el.x, 1)}${P.num("Y", "y", el.y, 1)}</div>
+              <p class="dz-tip">The picture keeps its shape inside this box. PNG or JPG work best; other types are converted.</p>`;
       } else if (el.type === "table") {
         h += `<div class="grid2">${P.num("Width", "w", el.w, 1, 240)}${P.num("Space reserved", "h", el.h, 1, 20)}
               ${P.sel("Font", "font", el.font, FONT_OPTS)}${P.num("Text size", "size", el.size, 0.5, 6)}
@@ -2237,6 +2247,11 @@
       $("dzFront").onclick = () => dzLayer(true);
       $("dzBack").onclick = () => dzLayer(false);
       if ($("dzDup")) $("dzDup").onclick = dzDuplicate;
+      if ($("dzImgUpload")) {
+        $("dzImgUpload").onclick = () => $("dzImgFile").click();
+        $("dzImgFile").onchange = e => { const f = e.target.files[0]; if (f) dzUploadImage(el, f); };
+      }
+      if ($("dzImgReset")) $("dzImgReset").onclick = () => { delete el.src; dzChanged(); dzRender(); dzProps(); };
       $("dzDel").onclick = dzDelete;
       if ($("dzInsertField")) $("dzInsertField").onchange = e => {
         const k = e.target.value; e.target.value = ""; if (!k) return;
@@ -2267,6 +2282,33 @@
       } else return;
       dzChanged(); dzRender();
     });
+    // picture for a logo item: convert to PNG/JPG if needed, shrink big ones, upload to storage
+    async function dzPrepareImage(file) {
+      const okType = /^image\/(png|jpe?g)$/.test(file.type);
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("That file isn't a picture the browser can read")); i.src = url; });
+        const MAX = 1200, big = Math.max(img.naturalWidth, img.naturalHeight) > MAX;
+        if (okType && !big && file.size <= 2 * 1024 * 1024) return file;
+        const s = big ? MAX / Math.max(img.naturalWidth, img.naturalHeight) : 1;
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        const jpg = file.type === "image/jpeg";   // keep photos as JPG, everything else PNG (keeps transparency)
+        const blob = await new Promise(r => c.toBlob(r, jpg ? "image/jpeg" : "image/png", 0.9));
+        return new File([blob], file.name.replace(/\.\w+$/, "") + (jpg ? ".jpg" : ".png"), { type: blob.type });
+      } finally { URL.revokeObjectURL(url); }
+    }
+    async function dzUploadImage(el, file) {
+      const btn = $("dzImgUpload"); if (btn) { btn.disabled = true; btn.textContent = "Uploading…"; }
+      try {
+        const ready = await dzPrepareImage(file);
+        const up = await uploadImage(ready, "design/");
+        el.src = up.url;
+        dzChanged(); dzRender(); dzProps();
+        toast("Picture uploaded — click Save design to keep it");
+      } catch (err) { toast(err.message); if (btn) { btn.disabled = false; btn.textContent = "Upload image…"; } }
+    }
     // keep X/Y/W/H boxes in step while dragging
     function dzSyncProps() {
       const el = dzSelEl(), box = $("dzProps");
@@ -2323,8 +2365,8 @@
           header: dz.designs.header, invoice: dz.designs.invoice, mode,
           data: mode === "letterhead" ? DR.buildData(null, settings, new Date()) : dzSampleData(),
           title: mode === "letterhead" ? "Letterhead" : "Invoice preview",
-          loadImage: async () => {
-            const r = await fetch(settings.logo_url || "logo.jpg");
+          loadImage: async (src) => {
+            const r = await fetch(src || settings.logo_url || "logo.jpg");
             return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
           },
         });
