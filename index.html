@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nook & Novelty</title>
+  <meta name="description" content="Nook & Novelty — little bit of everything. Shop online." />
+  <!-- link preview on WhatsApp, Facebook etc. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://nook-novelty.vercel.app/" />
+  <meta property="og:title" content="Nook & Novelty" />
+  <meta property="og:description" content="Little bit of everything — shop online" />
+  <meta property="og:image" content="https://nook-novelty.vercel.app/logo.jpg" />
+  <meta property="og:image:width" content="799" />
+  <meta property="og:image:height" content="800" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* logo centred in the space left of the products; products keep their position */
+    main.shop-layout {
+      --left: max(272px, calc(50vw - 376px));          /* page edge -> start of search box */
+      max-width: none; padding: 16px 0;
+      display: grid; grid-template-columns: var(--left) minmax(0, 1020px) minmax(16px, 1fr);
+      align-items: start;
+    }
+    .shop-logo { grid-column: 1; justify-self: center; width: 240px; position: sticky; top: 73px; }
+    .shop-logo img { display: block; width: 100%; height: auto; margin: 0;
+      border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05); }
+    .shop-content { grid-column: 2; min-width: 0; }
+    .shop-content > .toolbar:first-child { margin-top: 0; }   /* top of search = top of logo */
+    /* keep the description's line breaks exactly as typed in the admin */
+    .card .body p { white-space: pre-line; overflow-wrap: anywhere; }
+    /* colours & sizes on the product cards */
+    .opt-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .opt-label strong { color: var(--text); font-weight: 600; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+    .swatch { width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 2px solid var(--border); overflow: hidden;
+      cursor: pointer; background: var(--bg); display: grid; place-items: center; font-size: 11px; color: var(--muted); }
+    .swatch img { width: 100%; height: 100%; object-fit: cover; }
+    .swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+    .swatch.out { opacity: .4; }
+    .sizes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .size { min-width: 40px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+      color: var(--text); cursor: pointer; font: inherit; font-size: 13px; }
+    .size.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .size:disabled { opacity: .35; text-decoration: line-through; cursor: not-allowed; }
+    @media (max-width: 760px) {
+      main.shop-layout { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
+      .shop-logo, .shop-content { grid-column: 1; }
+      .shop-logo { position: static; width: 160px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img id="logo" class="hidden" alt="" />
+      <div style="min-width:0">
+        <h1 id="shopName">Shop</h1>
+        <div class="tagline hidden" id="tagline"></div>
+      </div>
+    </div>
+    <button class="btn primary" id="cartBtn" style="flex:none">Cart (<span id="cartCount">0</span>)</button>
+  </header>
+
+  <main class="shop-layout">
+    <aside class="shop-logo" id="sideLogoWrap">
+      <img id="sideLogo" src="logo.jpg" alt="Nook & Novelty" onerror="document.getElementById('sideLogoWrap').classList.add('hidden')" />
+    </aside>
+    <div class="shop-content">
+      <div class="toolbar"><input id="search" type="search" placeholder="Search products…" /></div>
+      <div class="cats" id="cats"></div>
+      <div id="products" class="grid"></div>
+      <p id="empty" class="muted hidden">No products found.</p>
+    </div>
+  </main>
+
+  <footer class="shop-footer hidden" id="footer"><div class="inner" id="footerInner"></div></footer>
+
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="cart">
+    <div class="head"><strong id="drawerTitle">Your cart</strong></div>
+    <div class="content">
+      <div id="cartView">
+        <div id="cartLines"></div>
+        <form id="checkout" class="hidden">
+          <h3>Checkout</h3>
+          <label>Full name *</label><input name="name" required />
+          <label>Email *</label><input name="email" type="email" required />
+          <label>Phone</label><input name="phone" type="tel" />
+          <label>Delivery address</label><textarea name="address" rows="3"></textarea>
+        </form>
+      </div>
+      <div id="doneView" class="hidden"></div>
+    </div>
+    <div class="foot" id="cartFoot">
+      <div class="line" style="border:0"><strong>Total</strong><strong id="cartTotal">R0.00</strong></div>
+      <button class="btn primary" id="checkoutBtn" style="width:100%">Checkout</button>
+      <button class="btn" id="closeCart" style="width:100%;margin-top:8px">Continue shopping</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    const cfg = window.SHOP_CONFIG;
+    const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    const money = n => new Intl.NumberFormat(cfg.LOCALE, { style: "currency", currency: cfg.CURRENCY }).format(n);
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+    let products = [];
+    let categories = [];
+    let settings = {};
+    let activeCat = "";
+    let cart = loadCart();
+
+    function loadCart() { try { return JSON.parse(localStorage.getItem("cart") || "{}"); } catch { return {}; } }
+    function storeCart() { try { localStorage.setItem("cart", JSON.stringify(cart)); } catch {} }
+    function saveCart() { storeCart(); renderCart(); }
+    function toast(msg) {
+      const t = $("toast"); t.textContent = msg; t.classList.add("show");
+      clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2500);
+    }
+
+    // ---------- BUSINESS DETAILS ----------
+    async function loadSettings() {
+      const { data } = await db.from("settings").select("data").eq("id", 1).maybeSingle();
+      settings = data?.data || {};
+      const name = settings.business_name || cfg.SHOP_NAME || "Shop";
+      document.title = settings.tagline ? `${name} — ${settings.tagline}` : name;
+      $("shopName").textContent = name;
+      $("tagline").textContent = settings.tagline || "";
+      $("tagline").classList.toggle("hidden", !settings.tagline);
+      // big logo on the left: the one uploaded in Business Details, otherwise logo.jpg
+      if (settings.logo_url) { $("sideLogo").src = settings.logo_url; $("sideLogoWrap").classList.remove("hidden"); }
+      $("sideLogo").alt = name;
+
+      const wa = (settings.whatsapp || "").replace(/\D/g, "").replace(/^0/, "27");
+      const bits = [
+        settings.email && `<span>✉ <a href="mailto:${esc(settings.email)}">${esc(settings.email)}</a></span>`,
+        settings.phone && `<span>☎ <a href="tel:${esc(settings.phone)}">${esc(settings.phone)}</a></span>`,
+        wa && `<span>WhatsApp: <a href="https://wa.me/${wa}" target="_blank" rel="noopener">${esc(settings.whatsapp)}</a></span>`,
+        settings.website && `<span><a href="${esc(settings.website)}" target="_blank" rel="noopener">${esc(settings.website.replace(/^https?:\/\//, ""))}</a></span>`,
+        settings.address && `<span>${esc(settings.address).replace(/\n/g, ", ")}</span>`,
+        settings.reg_no && `<span>Reg: ${esc(settings.reg_no)}</span>`,
+        settings.vat_no && `<span>VAT: ${esc(settings.vat_no)}</span>`,
+      ].filter(Boolean);
+      bits.push(`<span>© ${new Date().getFullYear()} ${esc(name)}</span>`);
+      $("footerInner").innerHTML = bits.join("");
+      $("footer").classList.remove("hidden");
+    }
+
+    // ---------- CATEGORIES & PRODUCTS ----------
+    let colors = [], variants = [];
+    const sel = {};   // chosen colour/size per product: { [productId]: { color, size } }
+    const parseSizes = t => [...new Set(String(t || "").split(/[,;]+/).flatMap(x => {
+      x = x.trim();
+      const r = x.match(/^(\d{1,2})\s*(?:-|–|to)\s*(\d{1,2})$/i);   // "3-9" or "3 to 9" -> 3, 4, 5 … 9
+      if (r && +r[2] > +r[1] && +r[2] - +r[1] <= 30) return Array.from({ length: +r[2] - +r[1] + 1 }, (_, i) => String(+r[1] + i));
+      return x ? [x] : [];
+    }))];
+    async function loadCatalog() {
+      const [cats, prods, cols, vars] = await Promise.all([
+        db.from("categories").select("id,name").eq("active", true).order("sort_order").order("name"),
+        db.from("products").select("id,name,description,price,stock,category_id,image_url,sizes")
+          .eq("active", true).order("created_at", { ascending: false }),
+        db.from("product_colors").select("id,product_id,name,image_url,price,sort_order").order("sort_order"),
+        db.from("product_variants").select("id,product_id,color_id,size,stock"),
+      ]);
+      if (prods.error) {
+        // before update-13 the "sizes" column doesn't exist yet: load without it
+        const retry = await db.from("products").select("id,name,description,price,stock,category_id,image_url")
+          .eq("active", true).order("created_at", { ascending: false });
+        if (retry.error) { toast("Could not load products: " + retry.error.message); return; }
+        prods.data = retry.data;
+      }
+      categories = cats.data || [];
+      products = prods.data;
+      colors = cols.error ? [] : cols.data;
+      variants = vars.error ? [] : vars.data;
+      for (const key of Object.keys(cart)) if (!lineInfo(key)) delete cart[key];
+      storeCart();
+      if (activeCat && !categories.some(c => c.id === activeCat)) activeCat = "";
+      renderCats(); renderProducts(); renderCart();
+    }
+
+    // everything about one product's colours and sizes
+    function optionsOf(p) {
+      const cs = colors.filter(c => c.product_id === p.id);
+      const vs = variants.filter(v => v.product_id === p.id);
+      const sizes = parseSizes(p.sizes).filter(sz => vs.some(v => v.size === sz));
+      return { colors: cs, variants: vs, sizes, has: vs.length > 0 };
+    }
+    const colorStock = (o, cid) => o.variants.filter(v => v.color_id === cid).reduce((t, v) => t + v.stock, 0);
+    function choice(p, o) {
+      const c = sel[p.id] || (sel[p.id] = {});
+      if (o.colors.length && !o.colors.some(x => x.id === c.color))
+        c.color = (o.colors.find(x => colorStock(o, x.id) > 0) || o.colors[0]).id;
+      if (o.sizes.length === 1) c.size = o.sizes[0];
+      return c;
+    }
+    function variantFor(p, o, c) {
+      if (!o.has) return null;
+      return o.variants.find(v => (v.color_id || null) === (o.colors.length ? c.color : null) &&
+                                  (v.size || null) === (o.sizes.length ? (c.size || "__none") : null)) || null;
+    }
+    // cart keys are a product id (no options) or a colour/size id
+    function lineInfo(key) {
+      const v = variants.find(x => x.id === key);
+      if (v) {
+        const p = products.find(x => x.id === v.product_id); if (!p) return null;
+        const c = colors.find(x => x.id === v.color_id);
+        return { product: p, variant: v, name: p.name,
+                 sub: [c && c.name, v.size && "Size " + v.size].filter(Boolean).join(" · "),
+                 price: Number(c && c.price != null ? c.price : p.price), stock: v.stock,
+                 image: (c && c.image_url) || p.image_url };
+      }
+      const p = products.find(x => x.id === key);
+      if (!p || variants.some(x => x.product_id === p.id)) return null;
+      return { product: p, variant: null, name: p.name, sub: "", price: Number(p.price), stock: p.stock, image: p.image_url };
+    }
+
+    function renderCats() {
+      // only show categories that actually have products
+      const used = categories.filter(c => products.some(p => p.category_id === c.id));
+      $("cats").classList.toggle("hidden", used.length === 0);
+      $("cats").innerHTML = `<button class="btn ${activeCat ? "" : "active"}" data-cat="">All</button>` +
+        used.map(c => `<button class="btn ${activeCat === c.id ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("");
+    }
+
+    function renderProducts() {
+      const q = $("search").value.trim().toLowerCase();
+      const list = products.filter(p =>
+        (!activeCat || p.category_id === activeCat) &&
+        (!q || p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) ||
+               colors.some(c => c.product_id === p.id && c.name.toLowerCase().includes(q))));
+      $("empty").classList.toggle("hidden", list.length > 0);
+      $("products").innerHTML = list.map(cardHtml).join("");
+    }
+    function cardHtml(p) {
+      const o = optionsOf(p);
+      if (!o.has) return `
+        <div class="card">
+          <img src="${esc(p.image_url || "")}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />
+          <div class="body">
+            <h3>${esc(p.name)}</h3>
+            <p>${esc(p.description || "")}</p>
+            <div class="line" style="border:0;padding:0">
+              <span class="price">${money(p.price)}</span>
+              <span class="muted" style="font-size:12px">${p.stock > 0 ? p.stock + " in stock" : "Sold out"}</span>
+            </div>
+            <button class="btn primary" data-add="${p.id}" ${p.stock > 0 ? "" : "disabled"}>Add to cart</button>
+          </div>
+        </div>`;
+      const c = choice(p, o), col = o.colors.find(x => x.id === c.color);
+      const v = variantFor(p, o, c);
+      const img = (col && col.image_url) || p.image_url || (o.colors.find(x => x.image_url) || {}).image_url || "";
+      const price = col && col.price != null ? col.price : p.price;
+      const total = o.variants.reduce((t, x) => t + x.stock, 0);
+      const needSize = o.sizes.length > 1 && !c.size;
+      const stockText = total === 0 ? "Sold out" : needSize ? "Choose a size" : v ? (v.stock > 0 ? v.stock + " in stock" : "Sold out") : "";
+      const sizeStock = sz => o.variants.filter(x => x.size === sz && (!o.colors.length || x.color_id === c.color)).reduce((t, x) => t + x.stock, 0);
+      return `
+        <div class="card">
+          <img src="${esc(img)}" alt="${esc(p.name + (col ? " – " + col.name : ""))}" loading="lazy" onerror="this.style.visibility='hidden'" />
+          <div class="body">
+            <h3>${esc(p.name)}</h3>
+            <p>${esc(p.description || "")}</p>
+            ${o.colors.length ? `
+              <div class="opt-label">Colour: <strong>${esc(col ? col.name : "")}</strong></div>
+              <div class="swatches">${o.colors.map(x => `
+                <button type="button" class="swatch ${x.id === c.color ? "on" : ""} ${colorStock(o, x.id) ? "" : "out"}"
+                  data-pcol="${p.id}|${x.id}" title="${esc(x.name)}${colorStock(o, x.id) ? "" : " — sold out"}">
+                  ${x.image_url ? `<img src="${esc(x.image_url)}" alt="${esc(x.name)}" loading="lazy">` : `<span>${esc(x.name.slice(0, 2))}</span>`}
+                </button>`).join("")}</div>` : ""}
+            ${o.sizes.length ? `
+              <div class="opt-label">Size${c.size ? `: <strong>${esc(c.size)}</strong>` : ""}</div>
+              <div class="sizes">${o.sizes.map(sz => `
+                <button type="button" class="size ${c.size === sz ? "on" : ""}" data-psize="${p.id}|${esc(sz)}"
+                  ${sizeStock(sz) ? "" : "disabled title='Sold out'"}>${esc(sz)}</button>`).join("")}</div>` : ""}
+            <div class="line" style="border:0;padding:0">
+              <span class="price">${money(price)}</span>
+              <span class="muted" style="font-size:12px">${stockText}</span>
+            </div>
+            <button class="btn primary" data-add="${p.id}" ${total === 0 || (v && v.stock === 0) ? "disabled" : ""}>Add to cart</button>
+          </div>
+        </div>`;
+    }
+
+    // ---------- CART ----------
+    function addToCart(pid) {
+      const p = products.find(x => x.id === pid), o = optionsOf(p);
+      let key = pid;
+      if (o.has) {
+        const c = choice(p, o);
+        if (o.sizes.length > 1 && !c.size) return toast("Please choose a size");
+        const v = variantFor(p, o, c);
+        if (!v || v.stock <= 0) return toast("That colour/size is sold out");
+        key = v.id;
+      }
+      addKey(key, true);
+    }
+    function addKey(key, announce) {
+      const L = lineInfo(key); if (!L) return;
+      const current = cart[key] || 0;
+      if (current >= L.stock) { toast("No more stock available"); return; }
+      cart[key] = current + 1;
+      saveCart();
+      if (announce) toast(`${L.name}${L.sub ? " (" + L.sub + ")" : ""} added to cart`);
+    }
+
+    function renderCart() {
+      const keys = Object.keys(cart).filter(k => lineInfo(k));
+      let total = 0, count = 0;
+      $("cartLines").innerHTML = keys.length ? keys.map(k => {
+        const L = lineInfo(k), qty = cart[k];
+        total += L.price * qty; count += qty;
+        return `<div class="line">
+          ${L.image ? `<img src="${esc(L.image)}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:none">` : ""}
+          <div style="flex:1;min-width:0"><div>${esc(L.name)}</div>
+            ${L.sub ? `<div class="muted" style="font-size:12px">${esc(L.sub)}</div>` : ""}
+            <div class="muted" style="font-size:13px">${money(L.price)}</div></div>
+          <div class="qty">
+            <button class="btn" data-dec="${k}">−</button><span>${qty}</span>
+            <button class="btn" data-inc="${k}">+</button>
+          </div></div>`;
+      }).join("") : '<p class="muted">Your cart is empty.</p>';
+      $("cartCount").textContent = count;
+      $("cartTotal").textContent = money(total);
+      $("checkoutBtn").disabled = count === 0;
+    }
+
+    function openCart(open) {
+      $("cart").classList.toggle("open", open);
+      $("overlay").classList.toggle("show", open);
+      if (!open) {
+        $("checkout").classList.add("hidden");
+        $("checkoutBtn").textContent = "Checkout";
+        $("cartView").classList.remove("hidden");
+        $("doneView").classList.add("hidden");
+        $("cartFoot").querySelector(".line").classList.remove("hidden");
+        $("checkoutBtn").classList.remove("hidden");
+        $("closeCart").textContent = "Continue shopping";
+        $("drawerTitle").textContent = "Your cart";
+      }
+    }
+
+    function showOrderDone(ref, total, email) {
+      const s = settings;
+      const hasBank = s.bank_name || s.account_number;
+      const row = (k, v) => v ? `<div><span class="muted">${k}</span><strong>${esc(v)}</strong></div>` : "";
+      $("doneView").innerHTML = `
+        <h3 style="margin-top:0">Thank you for your order!</h3>
+        <p>Your order number is <strong>${ref}</strong>. We'll be in touch at ${esc(email)}.</p>
+        <p>Amount due: <strong>${money(total)}</strong></p>
+        ${hasBank ? `
+          <h4 style="margin:16px 0 6px">Pay by EFT</h4>
+          <div class="eft">
+            ${row("Bank", s.bank_name)}${row("Account holder", s.account_name)}
+            ${row("Account number", s.account_number)}${row("Branch code", s.branch_code)}
+            ${row("Account type", s.account_type)}${row("Reference", ref)}
+          </div>` : ""}
+        ${s.payment_note ? `<p class="muted" style="font-size:14px;white-space:pre-line">${esc(s.payment_note)}</p>` : ""}`;
+      $("cartView").classList.add("hidden");
+      $("doneView").classList.remove("hidden");
+      $("cartFoot").querySelector(".line").classList.add("hidden");
+      $("checkoutBtn").classList.add("hidden");
+      $("closeCart").textContent = "Back to shop";
+      $("drawerTitle").textContent = "Order placed";
+    }
+
+    async function placeOrder() {
+      const form = $("checkout");
+      if (form.classList.contains("hidden")) {
+        form.classList.remove("hidden");
+        $("checkoutBtn").textContent = "Place order";
+        form.querySelector("input").focus();
+        return;
+      }
+      if (!form.reportValidity()) return;
+      const f = Object.fromEntries(new FormData(form));
+      const lines = Object.entries(cart).map(([key, qty]) => ({ L: lineInfo(key), key, qty })).filter(x => x.L);
+      const items = lines.map(({ L, key, qty }) => L.variant ? { id: L.product.id, variant_id: key, qty } : { id: key, qty });
+      const total = lines.reduce((t, x) => t + x.L.price * x.qty, 0);
+      $("checkoutBtn").disabled = true;
+      const { data, error } = await db.rpc("place_order", { p_customer: f, p_items: items });
+      $("checkoutBtn").disabled = false;
+      if (error) { toast(error.message); return; }
+      const ref = String(data).slice(0, 8).toUpperCase();
+      cart = {}; saveCart(); form.reset();
+      showOrderDone(ref, total, f.email);
+      loadCatalog();
+    }
+
+    // ---------- EVENTS ----------
+    document.addEventListener("click", e => {
+      const d = e.target.dataset;
+      const t = e.target.closest("[data-pcol],[data-psize]");
+      if (t && t.dataset.pcol) { const [pid, cid] = t.dataset.pcol.split("|"); (sel[pid] = sel[pid] || {}).color = cid; renderProducts(); return; }
+      if (t && t.dataset.psize) { const [pid, sz] = t.dataset.psize.split("|"); (sel[pid] = sel[pid] || {}).size = sz; renderProducts(); return; }
+      if (d.add) addToCart(d.add);
+      if (d.inc) addKey(d.inc);
+      if (d.dec) { cart[d.dec]--; if (cart[d.dec] <= 0) delete cart[d.dec]; saveCart(); }
+      if (d.cat !== undefined) { activeCat = d.cat; renderCats(); renderProducts(); }
+    });
+    $("search").addEventListener("input", renderProducts);
+    $("cartBtn").onclick = () => openCart(true);
+    $("closeCart").onclick = () => openCart(false);
+    $("overlay").onclick = () => openCart(false);
+    $("checkoutBtn").onclick = placeOrder;
+
+    loadSettings();
+    loadCatalog();
+  </script>
+</body>
+</html>
