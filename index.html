@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Nook & Novelty</title>
   <meta name="description" content="Nook & Novelty — little bit of everything. Shop online." />
   <!-- link preview on WhatsApp, Facebook etc. -->
@@ -73,9 +73,22 @@
     .pm-full div { max-height: none; }
     .pm-full h3 { margin: 0 0 6px; font-size: 15px; }
     .pm-full div { font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.6; }
+    .pm-buy { display: flex; flex-direction: column; gap: 10px; }
+    /* phones: the window fills the visible screen (above Safari's toolbar) and the
+       price + Add to cart stay pinned at the bottom while you scroll */
     @media (max-width: 700px) {
+      .pm-back { padding: 0; align-items: flex-end; }
+      .pm { width: 100%; max-height: 100vh; max-height: 100dvh; border-radius: 16px 16px 0 0; }
       .pm-body { grid-template-columns: 1fr; }
-      .pm-img { min-height: 0; aspect-ratio: 1/1; max-height: 56vh; border-radius: 16px 16px 0 0; }
+      .pm-img { min-height: 0; aspect-ratio: auto; height: 38vh; height: 38dvh; border-radius: 16px 16px 0 0; }
+      .pm-info { padding: 18px 16px 0; gap: 8px; }
+      .pm-info h2 { font-size: 19px; }
+      .pm-close { position: sticky; top: 10px; display: block; margin: 10px 10px -46px auto; z-index: 3; background: rgba(255,255,255,.92); }
+      .pm-buy { position: sticky; bottom: 0; z-index: 1; margin: 4px -16px 0; padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+        background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -6px 16px rgba(0,0,0,.06); gap: 8px; }
+      .pm-price-row { margin-top: 0; }
+      .pm-price { font-size: 21px; }
+      .pm-full { padding-bottom: 18px; }
     }
     /* category rows: main categories, then the sub-categories of the one you picked */
     .cats { flex-direction: column; gap: 8px; }
@@ -459,6 +472,7 @@
             <div class="pm-sizes">${o.sizes.map(sz => { const n = d.sizeStock(sz); return `
               <button type="button" class="pm-size ${d.c.size === sz ? "on" : ""}" data-psize="${p.id}|${esc(sz)}" ${n ? "" : "disabled"}
                 title="${n ? n + " in stock" : "Sold out"}">${esc(sz)}<span class="cnt ${n ? "" : "zero"}">${n}</span></button>`; }).join("")}</div>` : ""}
+          <div class="pm-buy">
           <div class="pm-price-row">
             <span>${priceHtml(p, d.price, "pm-price", "", d.col)}${discountNow(p, d.col) ? `<div class="sale-note">${saleNote(p, d.col)}</div>` : ""}</span>
             <span class="muted" style="font-size:13px">${esc(d.stockText || "")}</span>
@@ -466,6 +480,7 @@
           <div class="pm-actions">
             <button class="btn primary" data-add="${p.id}" ${d.canAdd ? "" : "disabled"}>Add to cart</button>
             ${full ? `<button class="btn" type="button" data-full="1">Full details</button>` : ""}
+          </div>
           </div>
         </div>`;
     }
