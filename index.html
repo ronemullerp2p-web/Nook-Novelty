@@ -476,13 +476,16 @@
 
     function renderProducts() {
       const q = $("search").value.trim().toLowerCase();
-      const catSet = activeCat ? catWithSubs(activeCat) : null;   // a main category shows everything under it
+      // a category that has sub-categories shows only their photo tiles (plus any products placed directly in it);
+      // the products appear once you open the last level, e.g. Women › Footwear › Vellies. A search looks everywhere.
+      const hasSubs = activeCat && catKids(activeCat).some(k => catHasProducts(k.id));
+      const catSet = !activeCat ? null : hasSubs && !q ? new Set([activeCat]) : catWithSubs(activeCat);
       const list = products.filter(p =>
         (!catSet || catSet.has(p.category_id)) &&
         (!q || p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) ||
                (p.full_description || "").toLowerCase().includes(q) ||
                colors.some(c => c.product_id === p.id && c.name.toLowerCase().includes(q))));
-      $("empty").classList.toggle("hidden", list.length > 0);
+      $("empty").classList.toggle("hidden", list.length > 0 || (hasSubs && !q));
       $("products").innerHTML = list.map(cardHtml).join("");
     }
     // the card in the grid: picture, name, short description and price — click it for everything else
