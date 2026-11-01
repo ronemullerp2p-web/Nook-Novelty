@@ -294,6 +294,11 @@
     .disc-box { margin-top: 12px; padding: 4px 14px 12px; border: 1px dashed color-mix(in srgb, #d92d20 45%, var(--border)); border-radius: 10px; background: color-mix(in srgb, #d92d20 4%, var(--surface)); }
     .disc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     @media (max-width: 560px) { .disc-grid { grid-template-columns: 1fr; } }
+    .disc-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 10px; }
+    .disc-colors .dc-label { font-size: 13px; color: var(--muted); width: 100%; }
+    .disc-colors .dc-item { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; color: var(--text);
+      padding: 5px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface); cursor: pointer; }
+    .disc-colors .dc-item input { width: auto; margin: 0; accent-color: #d92d20; }
     .sale-tag { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; color: #d92d20; }
   </style>
 </head>
@@ -511,6 +516,7 @@
                 <div><label>Start date</label><input name="discount_start" type="date" /></div>
                 <div><label>End date</label><input name="discount_end" type="date" /></div>
               </div>
+              <div id="discColors" class="disc-colors hidden"></div>
               <p class="muted" id="discInfo" style="margin:8px 0 0;font-size:13px">No discount. Enter a % and dates to put this product on sale.</p>
             </div>
             <label>Image <span style="font-weight:400">(main photo — optional if each colour has its own photo)</span></label><input name="image" type="file" accept="image/*" />
@@ -1199,7 +1205,7 @@
     // 6.0 colours & sizes: photo + optional price per colour, stock per colour and size · 6.1 size ranges like 3-9
     // 6.2 cost price per colour, R money boxes, selling price optional when every colour has a price
     // 6.3 product list shows price, cost, margin and stock per colour
-    const APP_VERSION = "7.8";
+    const APP_VERSION = "7.9";
     const LOGIN_DOMAIN = "nooknovelty.local";   // hidden login address for usernames (must match manage-users)
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
@@ -1754,7 +1760,10 @@
       const pct = discountNow(p);
       if (!pct) return "";
       const left = p.discount_end ? daysLeft(p.discount_end) : null;
-      return `<div class="sale-tag">${Number(pct)}% off${left == null ? "" : left === 0 ? " · last day" : ` · ${left} day${left === 1 ? "" : "s"} left`}</div>`;
+      const cs = optionsOf(p.id).colors, on = cs.filter(c => c.on_sale !== false);
+      if (cs.length && !on.length) return "";
+      const which = cs.length && on.length < cs.length ? ` (${on.map(c => c.name).join(", ")})` : "";
+      return `<div class="sale-tag">${Number(pct)}% off${which}${left == null ? "" : left === 0 ? " · last day" : ` · ${left} day${left === 1 ? "" : "s"} left`}</div>`;
     }
     function priceCells(p) {
       const cols = optionsOf(p.id).colors;
@@ -1852,11 +1861,20 @@
     function optFromProduct(p) {
       const o = optionsOf(p.id);
       opt = { sizes: parseSizes(p.sizes), stock: {},
-              colors: o.colors.map(c => ({ id: c.id, key: c.id, name: c.name, image_url: c.image_url || "", image_path: c.image_path || "", price: c.price ?? "", cost_price: c.cost_price ?? "" })) };
+              colors: o.colors.map(c => ({ id: c.id, key: c.id, name: c.name, image_url: c.image_url || "", image_path: c.image_path || "", price: c.price ?? "", cost_price: c.cost_price ?? "", on_sale: c.on_sale !== false })) };
       o.variants.forEach(v => { opt.stock[optKey(v.color_id, v.size)] = v.stock; });
+    }
+    // which colours the discount applies to (only shown when the product has colours)
+    function renderDiscColors() {
+      const named = opt.colors.map((c, i) => ({ c, i })).filter(x => x.c.name.trim());
+      $("discColors").classList.toggle("hidden", !named.length);
+      $("discColors").innerHTML = named.length ? `<div class="dc-label">Apply the discount to:</div>` + named.map(({ c, i }) =>
+        `<label class="dc-item"><input type="checkbox" data-discol="${i}" ${c.on_sale !== false ? "checked" : ""} /> ${esc(c.name)}</label>`).join("") : "";
+      updateDiscInfo();
     }
     function renderOptions() {
       $("optSizes").value = opt.sizes.join(", ");
+      setTimeout(renderDiscColors, 0);
       $("optColors").innerHTML = opt.colors.length ? `
         <div class="opt-color opt-head"><span>Photo</span><span>Colour</span><span>Selling price</span><span>Cost price</span><span></span></div>` +
         opt.colors.map((c, i) => `
@@ -1896,10 +1914,10 @@
       return okC && okS;
     }
     $("optSizes").addEventListener("change", e => { opt.sizes = parseSizes(e.target.value); renderOptions(); });
-    $("optAddColor").onclick = () => { opt.colors.push({ id: null, key: "new-" + Math.random().toString(36).slice(2, 8), name: "", image_url: "", image_path: "", price: "", cost_price: "" }); renderOptions(); $("optColors").querySelector(`[data-optname="${opt.colors.length - 1}"]`).focus(); };
+    $("optAddColor").onclick = () => { opt.colors.push({ id: null, key: "new-" + Math.random().toString(36).slice(2, 8), name: "", image_url: "", image_path: "", price: "", cost_price: "", on_sale: true }); renderOptions(); $("optColors").querySelector(`[data-optname="${opt.colors.length - 1}"]`).focus(); };
     $("optSection").addEventListener("input", e => {
       const d = e.target.dataset;
-      if (d.optname !== undefined) { opt.colors[d.optname].name = e.target.value; const cell = $("optGrid").querySelectorAll("tbody td:first-child")[d.optname]; if (cell) cell.textContent = e.target.value || "(no name)"; }
+      if (d.optname !== undefined) { opt.colors[d.optname].name = e.target.value; renderDiscColors(); const cell = $("optGrid").querySelectorAll("tbody td:first-child")[d.optname]; if (cell) cell.textContent = e.target.value || "(no name)"; }
       if (d.optprice !== undefined) { opt.colors[d.optprice].price = e.target.value; updatePriceRequired(); }
       if (d.optcost !== undefined) opt.colors[d.optcost].cost_price = e.target.value;
       if (d.optstock !== undefined) { opt.stock[d.optstock] = Math.max(0, parseInt(e.target.value, 10) || 0); const t = optTotal(); $("optTotal").textContent = t; form.stock.value = t; }
@@ -1949,11 +1967,12 @@
       const { error } = await db.rpc("save_product_options", {
         p_product: productId, p_sizes: opt.sizes.join(", "),
         p_colors: colors.map(c => ({ id: c.id, key: c.key, name: c.name.trim(), image_url: c.image_url, image_path: c.image_path,
-                                     price: c.price === "" ? null : c.price, cost_price: c.cost_price === "" ? null : c.cost_price })),
+                                     price: c.price === "" ? null : c.price, cost_price: c.cost_price === "" ? null : c.cost_price,
+                                     on_sale: c.on_sale !== false })),
         p_stock: stock,
       });
       if (error) throw new Error(/save_product_options|product_colors|schema cache/.test(error.message)
-        ? "Run update-13 and update-14 in Supabase to use colours & sizes (" + error.message + ")" : error.message);
+        ? "Run update-13, update-14 and update-21 in Supabase to use colours & sizes (" + error.message + ")" : error.message);
     }
     renderOptions();
     // ---------- Stock / Add Stock sub-tabs ----------
@@ -2009,11 +2028,18 @@
         else if (en && todayStr() > en) { t = `${pct}% off ${when} — this discount has ended.`; warn = true; }
         else if (st && todayStr() < st) t = `${pct}% off ${when} — starts in ${daysLeft(st)} day(s).`;
         else t = `${pct}% off ${when} — on sale now${en ? `, ${daysLeft(en) === 0 ? "last day today" : daysLeft(en) + " day(s) left"}` : ""}.`;
-        if (discountNow(p) && form.price.value) t += ` Selling price ${money(form.price.value)} → ${money(Number(form.price.value) * (100 - pct) / 100)}.`;
+        const named = opt.colors.filter(c => c.name.trim()), on = named.filter(c => c.on_sale !== false);
+        if (named.length && !on.length) { t += " No colours are ticked, so nothing is discounted."; warn = true; }
+        else if (named.length && on.length < named.length) t += ` Only for: ${on.map(c => c.name.trim()).join(", ")}.`;
+        else if (discountNow(p) && form.price.value) t += ` Selling price ${money(form.price.value)} → ${money(Number(form.price.value) * (100 - pct) / 100)}.`;
       }
       $("discInfo").textContent = t; $("discInfo").style.color = warn ? "var(--danger)" : pct > 0 ? "#d92d20" : "";
     }
     ["discount_pct", "discount_start", "discount_end", "price"].forEach(n => form[n].addEventListener("input", updateDiscInfo));
+    $("discColors").addEventListener("change", e => {
+      const i = e.target.dataset.discol; if (i === undefined) return;
+      opt.colors[i].on_sale = e.target.checked; updateDiscInfo();
+    });
 
     function resetForm() {
       form.reset(); form.id.value = ""; form.active.checked = true;
