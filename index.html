@@ -30,6 +30,7 @@
       border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05); }
     .shop-content { grid-column: 2; min-width: 0; }
     .shop-content > .toolbar:first-child { margin-top: 0; }   /* top of search = top of logo */
+    .shop-version { text-align: center; font-size: 11px; color: var(--muted); padding: 6px 0 14px; }
     /* product cards: click to open the product window */
     .pcard { cursor: pointer; transition: box-shadow .15s, transform .15s; }
     .pcard:hover, .pcard:focus-visible { box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 10px 28px rgba(0,0,0,.1); transform: translateY(-2px); outline: none; }
@@ -210,6 +211,7 @@
   </main>
 
   <footer class="shop-footer hidden" id="footer"><div class="inner" id="footerInner"></div></footer>
+  <div class="shop-version" id="shopVersion"></div>
 
   <div class="overlay" id="overlay"></div>
   <div class="pm-back hidden" id="pmodal" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
@@ -793,6 +795,8 @@
     $("overlay").onclick = () => openCart(false);
     $("checkoutBtn").onclick = placeOrder;
 
+    const SHOP_VERSION = "8.0";   // shown at the bottom of the shop, so you can see which version is live
+    $("shopVersion").textContent = "Version " + SHOP_VERSION;
     loadSettings();
     loadCatalog();
   </script>
