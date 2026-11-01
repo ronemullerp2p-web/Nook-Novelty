@@ -104,16 +104,18 @@
       color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); }
     .cat-arrow:disabled { opacity: .3; cursor: default; }
     .cat-bar.no-overflow .cat-arrow { display: none; }
-    /* sub-categories: a list on the left (big text on a light grey panel) */
-    .subnav { background: #f4f4f4; border-radius: 4px; padding: 6px 0 10px; }
-    .subnav h3 { margin: 0 0 6px; padding: 10px 14px 10px 16px; font-size: 24px; font-weight: 800; line-height: 1.15;
-      display: flex; justify-content: space-between; align-items: center; background: var(--bg); border-left: 7px solid #111; }
-    .subnav h3 .x { display: none; border: 0; background: none; font-size: 22px; cursor: pointer; color: var(--muted); }
+    /* sub-categories: a compact list on the left, sub-sub-categories indented under each one */
+    .subnav { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 8px; }
+    .subnav h3 { margin: 2px 8px 6px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+    .subnav h3 .x { display: none; border: 0; background: none; font-size: 16px; cursor: pointer; color: var(--muted); padding: 0 2px; }
     .subnav ul { list-style: none; margin: 0; padding: 0; }
-    .subnav li button { display: block; width: 100%; text-align: left; border: 0; background: none; color: #1d1d1f; font: inherit;
-      font-size: 19px; line-height: 1.2; padding: 15px 20px; cursor: pointer; border-left: 4px solid transparent; }
-    .subnav li button:hover { background: #ebebeb; }
-    .subnav li button.on, .subnav li button.in-path { background: #fff; font-weight: 700; border-left-color: var(--accent); }
+    .subnav ul ul { margin-left: 12px; padding-left: 6px; border-left: 2px solid var(--border); }
+    .subnav li button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--text); font: inherit;
+      font-size: 13px; padding: 6px 9px; border-radius: 7px; cursor: pointer; }
+    .subnav ul ul li button { font-size: 12.5px; padding: 4px 9px; color: var(--muted); }
+    .subnav li button:hover { background: var(--bg); color: var(--text); }
+    .subnav li button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+    .subnav li button.in-path:not(.on) { font-weight: 600; color: var(--text); }
     /* the categories inside the chosen one, as round photo tiles */
     .cat-tiles { margin: 0 0 22px; }
     .cat-tiles h2 { margin: 0 0 14px; font-size: 26px; font-weight: 800; }
@@ -154,18 +156,15 @@
       .shop-side, .shop-content { grid-column: 1; }
       .shop-side { position: static; width: 160px; max-height: none; overflow: visible; }
       /* on phones the sub-categories slide in from the left */
-      .subnav { position: fixed; top: 64px; left: 0; z-index: 25; width: min(220px, 62vw); max-height: calc(100vh - 84px); max-height: calc(100dvh - 84px);
-        border-radius: 0 14px 14px 0; overflow-y: auto; transform: translateX(-105%); transition: transform .2s;
+      .subnav { position: fixed; top: 64px; left: 0; z-index: 25; width: min(210px, 60vw); max-height: calc(100vh - 84px); max-height: calc(100dvh - 84px);
+        border-radius: 0 12px 12px 0; border-left: 0; overflow-y: auto; transform: translateX(-105%); transition: transform .2s;
         box-shadow: 0 10px 30px rgba(0,0,0,.18); }
       .subnav.open { transform: none; }
       .subnav h3 .x { display: block; }
       .subnav-back.open { display: block; position: fixed; inset: 0; z-index: 24; background: rgba(0,0,0,.35); }
       .subnav-open:not(.hidden) { display: inline-flex; align-items: center; gap: 6px; }
       .cat-arrow { display: none; }
-      .subnav { padding: 0 0 6px; background: #f4f4f4; }
-      .subnav h3 { font-size: 17px; padding: 9px 8px 9px 12px; border-left-width: 5px; margin-bottom: 2px; border-radius: 0 14px 0 0; }
-      .subnav h3 .x { font-size: 17px; padding: 2px 4px; }
-      .subnav li button { font-size: 14px; padding: 10px 14px; border-left-width: 3px; }
+
       .tile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
       .tile .nm { font-size: 14px; margin-top: 6px; }
       .cat-tiles h2 { font-size: 21px; }
@@ -427,8 +426,9 @@
       // the chosen main category's sub-categories (and their sub-categories) in the side panel
       const kids = root ? catKids(root.id).filter(k => catHasProducts(k.id)) : [];
       const tree = list => `<ul>${list.map(c => {
+        const sub = catKids(c.id).filter(k => catHasProducts(k.id));
         const cls = c.id === activeCat ? "on" : trail.some(t => t.id === c.id) ? "in-path" : "";
-        return `<li><button type="button" class="${cls}" data-cat="${c.id}">${esc(c.name)}</button></li>`;
+        return `<li><button type="button" class="${cls}" data-cat="${c.id}">${esc(c.name)}</button>${sub.length ? tree(sub) : ""}</li>`;
       }).join("")}</ul>`;
       const sn = $("subNav");
       sn.classList.toggle("hidden", !kids.length);
