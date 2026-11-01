@@ -435,15 +435,12 @@
     function detailHtml(p, o, d) {
       const full = (p.full_description || "").trim();
       const img = `<div class="pm-img"><img src="${esc(d.img || "")}" alt="${esc(p.name + (d.col ? " – " + d.col.name : ""))}" onerror="this.style.visibility='hidden'" /></div>`;
-      // "Full details" view: the right side shows only the descriptions; ✕ / Back returns to the options
+      // "Full details" view: the right side shows only the descriptions; ✕ (or Esc) returns to the options
       if (full && showFull) return img + `
         <div class="pm-info">
           <h2 id="pmTitle">${esc(p.name)}</h2>
           ${p.description ? `<p class="pm-desc">${esc(p.description)}</p>` : ""}
           <div class="pm-full"><h3>Full details</h3><div>${esc(full)}</div></div>
-          <div class="pm-actions" style="margin-top:6px">
-            <button class="btn" type="button" data-full="1">← Back</button>
-          </div>
         </div>`;
       return `
         <div class="pm-img"><img src="${esc(d.img || "")}" alt="${esc(p.name + (d.col ? " – " + d.col.name : ""))}" onerror="this.style.visibility='hidden'" /></div>
