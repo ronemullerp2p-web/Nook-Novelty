@@ -166,7 +166,21 @@
       /* on phones the sub-categories slide in from the left */
       /* phones: no side panel — the sub-categories show as rows of buttons under the main categories */
       .subnav { display: none !important; }
-      .sub-chips { display: flex; flex-direction: column; gap: 8px; margin: -6px 0 16px; }
+      /* phones: side panel on the left, tiles and products on the right */
+      .shop-content.has-side { display: grid; grid-template-columns: 96px minmax(0, 1fr); column-gap: 12px; align-items: start; }
+      .shop-content.has-side > .toolbar, .shop-content.has-side > .cat-bar { grid-column: 1 / -1; }
+      .shop-content.has-side > .sub-chips { display: flex; grid-column: 1; grid-row: 3 / span 3; position: sticky; top: 70px; }
+      .shop-content.has-side > .cat-tiles, .shop-content.has-side > #products, .shop-content.has-side > #empty { grid-column: 2; }
+      .shop-content.has-side .tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .shop-content.has-side .cat-tiles h2 { font-size: 17px; margin-bottom: 10px; }
+      .shop-content.has-side #products { grid-template-columns: 1fr; gap: 12px; }
+      .sub-chips { flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+        box-shadow: var(--shadow); padding: 6px 4px; gap: 1px; }
+      .sub-chips .ps-title { font-size: 12px; font-weight: 700; padding: 4px 6px 6px; border-bottom: 1px solid var(--border); margin-bottom: 3px; overflow-wrap: anywhere; }
+      .sub-chips button { border: 0; background: none; text-align: left; font: inherit; font-size: 12px; line-height: 1.25; color: var(--text);
+        padding: 7px 6px; border-radius: 6px; cursor: pointer; overflow-wrap: anywhere; }
+      .sub-chips button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+      .sub-chips button.in-path { font-weight: 700; background: var(--bg); }
       .cat-arrow { display: none; }
 
       .tile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -444,17 +458,11 @@
       $("subNavOpen").innerHTML = kids.length ? `☰ ${esc(root.name)}${label ? " › " + esc(label) : " — choose a category"}` : "";
       if (!kids.length) toggleSubNav(false);
       // phones: rows of buttons — sub-categories, then the sub-sub-categories of the one picked
-      let chips = "";
-      if (kids.length) {
-        chips += `<div class="sub-row"><button class="btn ${activeCat === root.id ? "active" : ""}" data-cat="${root.id}">All ${esc(root.name)}</button>` +
-          kids.map(c => `<button class="btn ${trail.some(t => t.id === c.id) ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("") + `</div>`;
-        for (const t of trail.slice(1)) {
-          const sub = catKids(t.id).filter(k => catHasProducts(k.id));
-          if (sub.length) chips += `<div class="sub-row lvl3"><button class="btn ${activeCat === t.id ? "active" : ""}" data-cat="${t.id}">All ${esc(t.name)}</button>` +
-            sub.map(c => `<button class="btn ${trail.some(x => x.id === c.id) ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("") + `</div>`;
-        }
-      }
-      $("subChips").innerHTML = chips;
+      // phones: a narrow side panel next to the tiles with the same list as the computer's sidebar
+      $("subChips").innerHTML = kids.length ? `<div class="ps-title">${esc(root.name)}</div>` +
+        `<button type="button" class="${activeCat === root.id ? "on" : ""}" data-cat="${root.id}">All ${esc(root.name)}</button>` +
+        kids.map(c => `<button type="button" class="${c.id === activeCat ? "on" : trail.some(t => t.id === c.id) ? "in-path" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("") : "";
+      document.querySelector(".shop-content").classList.toggle("has-side", kids.length > 0);
       renderTiles(trail);
       setTimeout(updateCatArrows, 0);
     }
@@ -795,7 +803,7 @@
     $("overlay").onclick = () => openCart(false);
     $("checkoutBtn").onclick = placeOrder;
 
-    const SHOP_VERSION = "8.1";   // shown at the bottom of the shop, so you can see which version is live
+    const SHOP_VERSION = "8.2";   // shown at the bottom of the shop, so you can see which version is live
     $("shopVersion").textContent = "Shop version " + SHOP_VERSION;
     // the admin's version, read from the live admin page so it's always right
     fetch("admin.html", { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(t => {
