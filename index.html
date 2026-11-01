@@ -23,7 +23,9 @@
       display: grid; grid-template-columns: var(--left) minmax(0, 1020px) minmax(16px, 1fr);
       align-items: start;
     }
-    .shop-logo { grid-column: 1; justify-self: center; width: 240px; position: sticky; top: 73px; }
+    .shop-side { grid-column: 1; justify-self: center; width: 240px; position: sticky; top: 73px;
+      max-height: calc(100vh - 89px); overflow-y: auto; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; }
+    .shop-logo { width: 100%; }
     .shop-logo img { display: block; width: 100%; height: auto; margin: 0;
       border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05); }
     .shop-content { grid-column: 2; min-width: 0; }
@@ -91,10 +93,31 @@
       .pm-full { padding-bottom: 18px; }
     }
     /* category rows: main categories, then the sub-categories of the one you picked */
-    .cats { flex-direction: column; gap: 8px; }
-    .cats-row { display: flex; gap: 6px; flex-wrap: wrap; }
-    .cats-row.sub { padding-left: 12px; border-left: 2px solid var(--border); }
-    .cats-row.sub .btn { font-size: 13px; padding: 5px 11px; }
+    /* main categories: one line you can scroll left and right */
+    .cat-bar { position: relative; display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
+    .cat-scroll { display: flex; gap: 6px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none; flex: 1; min-width: 0;
+      scroll-snap-type: x proximity; padding: 2px 0; }
+    .cat-scroll::-webkit-scrollbar { display: none; }
+    .cat-scroll .btn { flex: none; white-space: nowrap; scroll-snap-align: start; }
+    .cat-scroll .btn.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .cat-arrow { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); }
+    .cat-arrow:disabled { opacity: .3; cursor: default; }
+    .cat-bar.no-overflow .cat-arrow { display: none; }
+    /* sub-categories: a list on the left, sub-sub-categories indented under each one */
+    .subnav { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 10px; }
+    .subnav h3 { margin: 2px 8px 8px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .subnav h3 .x { display: none; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); }
+    .subnav ul { list-style: none; margin: 0; padding: 0; }
+    .subnav ul ul { margin-left: 14px; padding-left: 8px; border-left: 2px solid var(--border); }
+    .subnav li button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--text); font: inherit;
+      font-size: 14px; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+    .subnav ul ul li button { font-size: 13px; padding: 5px 10px; color: var(--muted); }
+    .subnav li button:hover { background: var(--bg); color: var(--text); }
+    .subnav li button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+    .subnav li button.in-path:not(.on) { font-weight: 600; color: var(--text); }
+    .subnav-open { display: none; margin: -6px 0 14px; }
+    .subnav-back { display: none; }
     /* keep the description's line breaks exactly as typed in the admin */
     .card .body p { white-space: pre-line; overflow-wrap: anywhere; }
     /* colours & sizes on the product cards */
@@ -112,8 +135,16 @@
     .size-sel.need { border-color: var(--accent); }
     @media (max-width: 760px) {
       main.shop-layout { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
-      .shop-logo, .shop-content { grid-column: 1; }
-      .shop-logo { position: static; width: 160px; }
+      .shop-side, .shop-content { grid-column: 1; }
+      .shop-side { position: static; width: 160px; max-height: none; overflow: visible; }
+      /* on phones the sub-categories slide in from the left */
+      .subnav { position: fixed; top: 0; bottom: 0; left: 0; z-index: 25; width: min(300px, 85vw); border-radius: 0 14px 14px 0;
+        overflow-y: auto; transform: translateX(-105%); transition: transform .2s; padding-top: 16px; }
+      .subnav.open { transform: none; }
+      .subnav h3 .x { display: block; }
+      .subnav-back.open { display: block; position: fixed; inset: 0; z-index: 24; background: rgba(0,0,0,.35); }
+      .subnav-open:not(.hidden) { display: inline-flex; align-items: center; gap: 6px; }
+      .cat-arrow { display: none; }
     }
   </style>
 </head>
@@ -130,12 +161,21 @@
   </header>
 
   <main class="shop-layout">
-    <aside class="shop-logo" id="sideLogoWrap">
-      <img id="sideLogo" src="logo.jpg" alt="Nook & Novelty" onerror="document.getElementById('sideLogoWrap').classList.add('hidden')" />
+    <aside class="shop-side" id="shopSide">
+      <div class="shop-logo" id="sideLogoWrap">
+        <img id="sideLogo" src="logo.jpg" alt="Nook & Novelty" onerror="document.getElementById('sideLogoWrap').classList.add('hidden')" />
+      </div>
+      <nav class="subnav hidden" id="subNav" aria-label="Sub-categories"></nav>
     </aside>
+    <div class="subnav-back" id="subNavBack"></div>
     <div class="shop-content">
       <div class="toolbar"><input id="search" type="search" placeholder="Search products…" /></div>
-      <div class="cats" id="cats"></div>
+      <div class="cat-bar hidden" id="catBar">
+        <button class="cat-arrow left" type="button" id="catLeft" aria-label="Scroll categories left">‹</button>
+        <div class="cat-scroll" id="cats"></div>
+        <button class="cat-arrow right" type="button" id="catRight" aria-label="Scroll categories right">›</button>
+      </div>
+      <button class="btn subnav-open hidden" type="button" id="subNavOpen"></button>
       <div id="products" class="grid"></div>
       <p id="empty" class="muted hidden">No products found.</p>
     </div>
@@ -354,20 +394,46 @@
       return out;
     }
     function renderCats() {
-      const trail = catTrail(activeCat), onTrail = id => trail.some(c => c.id === id);
-      const row = (parent, kids) => `<div class="cats-row ${parent ? "sub" : ""}">` +
-        `<button class="btn ${(!parent && !activeCat) || (parent && activeCat === parent.id) ? "active" : ""}" data-cat="${parent ? parent.id : ""}">${parent ? "All " + esc(parent.name) : "All"}</button>` +
-        kids.map(c => `<button class="btn ${onTrail(c.id) ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("") + `</div>`;
-      const roots = catKids(null).filter(c => catHasProducts(c.id));
-      let html = roots.length ? row(null, roots) : "";
-      // only show categories that actually have products
-      for (const c of trail) {
-        const kids = catKids(c.id).filter(k => catHasProducts(k.id));
-        if (kids.length) html += row(c, kids);
-      }
-      $("cats").classList.toggle("hidden", !html);
-      $("cats").innerHTML = html;
+      const trail = catTrail(activeCat), root = trail[0];
+      const roots = catKids(null).filter(c => catHasProducts(c.id));   // only categories that have products
+      $("catBar").classList.toggle("hidden", !roots.length);
+      $("cats").innerHTML = roots.length ? `<button class="btn ${!activeCat ? "active" : ""}" data-cat="">All</button>` +
+        roots.map(c => `<button class="btn ${root && root.id === c.id ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("") : "";
+      // the chosen main category's sub-categories (and their sub-categories) in the side panel
+      const kids = root ? catKids(root.id).filter(k => catHasProducts(k.id)) : [];
+      const tree = list => `<ul>${list.map(c => {
+        const sub = catKids(c.id).filter(k => catHasProducts(k.id));
+        const cls = c.id === activeCat ? "on" : trail.some(t => t.id === c.id) ? "in-path" : "";
+        return `<li><button type="button" class="${cls}" data-cat="${c.id}">${esc(c.name)}</button>${sub.length ? tree(sub) : ""}</li>`;
+      }).join("")}</ul>`;
+      const sn = $("subNav");
+      sn.classList.toggle("hidden", !kids.length);
+      sn.innerHTML = kids.length ? `<h3><span>${esc(root.name)}</span><button class="x" type="button" data-subclose="1" aria-label="Close">✕</button></h3>
+        <ul><li><button type="button" class="${activeCat === root.id ? "on" : ""}" data-cat="${root.id}">All ${esc(root.name)}</button></li></ul>${tree(kids)}` : "";
+      const label = trail.slice(1).map(c => c.name).join(" › ");
+      $("subNavOpen").classList.toggle("hidden", !kids.length);
+      $("subNavOpen").innerHTML = kids.length ? `☰ ${esc(root.name)}${label ? " › " + esc(label) : " — choose a category"}` : "";
+      if (!kids.length) toggleSubNav(false);
+      setTimeout(updateCatArrows, 0);
     }
+    function toggleSubNav(open) {
+      $("subNav").classList.toggle("open", open);
+      $("subNavBack").classList.toggle("open", open);
+    }
+    const isPhone = () => window.matchMedia("(max-width: 760px)").matches;
+    // ‹ › buttons scroll the main categories; greyed out at either end
+    function updateCatArrows() {
+      const el = $("cats"), over = el.scrollWidth > el.clientWidth + 2;
+      $("catBar").classList.toggle("no-overflow", !over);
+      $("catLeft").disabled = el.scrollLeft <= 2;
+      $("catRight").disabled = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    }
+    $("catLeft").onclick = () => $("cats").scrollBy({ left: -$("cats").clientWidth * .7 });
+    $("catRight").onclick = () => $("cats").scrollBy({ left: $("cats").clientWidth * .7 });
+    $("cats").addEventListener("scroll", updateCatArrows, { passive: true });
+    window.addEventListener("resize", updateCatArrows);
+    $("subNavOpen").onclick = () => toggleSubNav(true);
+    $("subNavBack").onclick = () => toggleSubNav(false);
 
     function renderProducts() {
       const q = $("search").value.trim().toLowerCase();
@@ -629,7 +695,15 @@
       if (d.add) addToCart(d.add);
       if (d.inc) addKey(d.inc);
       if (d.dec) { cart[d.dec]--; if (cart[d.dec] <= 0) delete cart[d.dec]; saveCart(); }
-      if (d.cat !== undefined) { activeCat = d.cat; renderCats(); renderProducts(); }
+      const cb = e.target.closest("[data-cat]");
+      if (cb) {
+        const id = cb.dataset.cat, fromMain = !!cb.closest("#cats"), c = categories.find(x => x.id === id);
+        activeCat = id; renderCats(); renderProducts();
+        // phones: picking a main category with sub-categories opens the side panel; picking in the panel closes it
+        if (isPhone()) toggleSubNav(fromMain && !!c && catKids(c.id).some(k => catHasProducts(k.id)));
+        if (fromMain) cb.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+      if (e.target.closest("[data-subclose]")) toggleSubNav(false);
     });
     $("search").addEventListener("input", renderProducts);
     $("cartBtn").onclick = () => openCart(true);
