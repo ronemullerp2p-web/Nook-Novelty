@@ -283,6 +283,9 @@
     .cat-name .tw { color: var(--muted); flex: none; font-size: 13px; }
     .cat-row select { width: 200px; padding: 6px 8px; font-size: 13px; }
     .cat-row td:nth-child(4) { white-space: nowrap; }
+    .ship-mail { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+    .ship-mail .btn { width: 100%; }
+    .ship-mail .btn:not(:disabled) { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
     .ship-info { display: block; margin-top: 5px; padding: 3px 7px; border: 1px dashed var(--border); border-radius: 6px; background: none;
       color: var(--muted); font: inherit; font-size: 12px; line-height: 1.35; text-align: left; cursor: pointer; }
     .ship-info:hover { color: var(--accent); border-color: var(--accent); }
@@ -1077,6 +1080,10 @@
       <p class="muted hidden" id="shipNoCouriers" style="text-align:left;font-size:12px;margin-top:4px">No couriers yet — add them under Settings → Courier &amp; Shipping.</p>
       <label>Shipping date *</label><input name="ship_date" type="date" required />
       <label>Waybill no.</label><input name="waybill_no" maxlength="60" autocomplete="off" />
+      <div class="ship-mail" id="shipMailBox">
+        <button type="button" class="btn" id="shipEmail" disabled>✉ Email to customer</button>
+        <div class="muted" id="shipMailHint" style="font-size:12px;margin-top:4px">Fill in all 3 fields to email the customer their shipping details.</div>
+      </div>
       <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn" id="shipCancel">Cancel</button>
         <button class="btn primary" id="shipSave">Mark as Shipped</button>
@@ -1177,7 +1184,7 @@
     // 6.0 colours & sizes: photo + optional price per colour, stock per colour and size · 6.1 size ranges like 3-9
     // 6.2 cost price per colour, R money boxes, selling price optional when every colour has a price
     // 6.3 product list shows price, cost, margin and stock per colour
-    const APP_VERSION = "7.4";
+    const APP_VERSION = "7.5";
     const LOGIN_DOMAIN = "nooknovelty.local";   // hidden login address for usernames (must match manage-users)
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
@@ -2542,21 +2549,59 @@
       f.ship_date.value = o.ship_date || new Date().toLocaleDateString("en-CA");   // yyyy-mm-dd, local
       f.waybill_no.value = o.waybill_no || "";
       $("shipSave").textContent = o.status === "shipped" ? "Save" : "Mark as Shipped";
+      shipMailCheck();
       $("shipModal").classList.remove("hidden");
       setTimeout(() => (f.courier_id.value ? f.waybill_no : f.courier_id).focus(), 30);
     }
+    // "Email to customer" only when courier, date and waybill are all filled in
+    function shipMailCheck() {
+      const f = $("shipForm"), o = orders.find(x => x.id === shipOrderId);
+      const ready = !!(f.courier_id.value && f.ship_date.value && f.waybill_no.value.trim());
+      $("shipEmail").disabled = !ready || !o?.email;
+      $("shipMailHint").textContent = !o?.email ? "This order has no email address."
+        : ready ? `Sends the courier, shipping date and waybill number to ${o.email}.`
+        : "Fill in all 3 fields to email the customer their shipping details.";
+    }
+    $("shipForm").addEventListener("input", shipMailCheck);
+    $("shipForm").addEventListener("change", shipMailCheck);
+    async function saveShipping(o) {   // returns true when saved
+      const f = $("shipForm");
+      const keep = f.courier_id.value === "__keep", c = couriers.find(x => x.id === f.courier_id.value);
+      const upd = { status: "shipped", ship_date: f.ship_date.value, waybill_no: f.waybill_no.value.trim() || null,
+        ...(keep ? {} : { courier_id: c ? c.id : null, courier_name: c ? c.name : null }) };
+      const { error } = await db.from("orders").update(upd).eq("id", o.id);
+      if (error) { toast(/courier|ship_date|waybill/.test(error.message) ? "Please run update-19-couriers-shipping.sql in Supabase first" : error.message); return false; }
+      return true;
+    }
+    $("shipEmail").onclick = async () => {
+      const f = $("shipForm"), o = orders.find(x => x.id === shipOrderId);
+      if (!o || !f.reportValidity()) return;
+      const btn = $("shipEmail"), old = btn.textContent;
+      btn.disabled = true; $("shipSave").disabled = true; btn.textContent = "Sending…";
+      try {
+        if (!(await saveShipping(o))) return;
+        const { data, error } = await invokeAsMe("send-shipping", { order_id: o.id });
+        if (error) {
+          const j = await fnError(error);
+          let msg = j.error || error.message;
+          if (/Failed to send|404|not found/i.test(msg) && !j.error) msg = "The send-shipping function isn't set up in Supabase yet (the shipping details were saved)";
+          throw new Error(msg);
+        }
+        if (data?.error) throw new Error(data.error);
+        toast(`Order marked as Shipped — shipping email sent to ${(data.to || [o.email]).join(", ")}`);
+        $("shipModal").classList.add("hidden"); shipOrderId = null;
+      } catch (err) { toast(err.message); }
+      finally { btn.textContent = old; $("shipSave").disabled = false; shipMailCheck(); loadOrders(); }
+    };
     function closeShipModal() { $("shipModal").classList.add("hidden"); shipOrderId = null; renderOrders(); }
     $("shipCancel").onclick = closeShipModal;   // the status stays as it was
     $("shipForm").onsubmit = async e => {
       e.preventDefault();
-      const f = e.target, o = orders.find(x => x.id === shipOrderId); if (!o) return closeShipModal();
-      const keep = f.courier_id.value === "__keep", c = couriers.find(x => x.id === f.courier_id.value);
-      const upd = { status: "shipped", ship_date: f.ship_date.value, waybill_no: f.waybill_no.value.trim() || null,
-        ...(keep ? {} : { courier_id: c ? c.id : null, courier_name: c ? c.name : null }) };
+      const o = orders.find(x => x.id === shipOrderId); if (!o) return closeShipModal();
       $("shipSave").disabled = true;
-      const { error } = await db.from("orders").update(upd).eq("id", o.id);
+      const ok = await saveShipping(o);
       $("shipSave").disabled = false;
-      if (error) return toast(/courier|ship_date|waybill/.test(error.message) ? "Please run update-19-couriers-shipping.sql in Supabase first" : error.message);
+      if (!ok) return;
       toast(o.status === "shipped" ? "Shipping details saved" : "Order marked as Shipped");
       $("shipModal").classList.add("hidden"); shipOrderId = null;
       loadOrders();
