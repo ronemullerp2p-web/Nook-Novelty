@@ -291,6 +291,10 @@
     .ship-info { display: block; margin-top: 5px; padding: 3px 7px; border: 1px dashed var(--border); border-radius: 6px; background: none;
       color: var(--muted); font: inherit; font-size: 12px; line-height: 1.35; text-align: left; cursor: pointer; }
     .ship-info:hover { color: var(--accent); border-color: var(--accent); }
+    .disc-box { margin-top: 12px; padding: 4px 14px 12px; border: 1px dashed color-mix(in srgb, #d92d20 45%, var(--border)); border-radius: 10px; background: color-mix(in srgb, #d92d20 4%, var(--surface)); }
+    .disc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    @media (max-width: 560px) { .disc-grid { grid-template-columns: 1fr; } }
+    .sale-tag { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; color: #d92d20; }
   </style>
 </head>
 <body>
@@ -499,6 +503,15 @@
                 <label>Min stock level <span style="font-size:12px">(email alert when stock drops to this — blank for no alert)</span></label>
                 <input name="min_stock" type="number" step="1" min="0" placeholder="e.g. 5" />
               </div>
+            </div>
+            <div class="disc-box">
+              <div class="disc-grid">
+                <div><label>Discount (%)</label>
+                  <div class="money-in"><input name="discount_pct" type="number" step="0.01" min="0" max="99.99" placeholder="e.g. 20" style="padding-left:11px" /><span style="left:auto;right:11px">%</span></div></div>
+                <div><label>Start date</label><input name="discount_start" type="date" /></div>
+                <div><label>End date</label><input name="discount_end" type="date" /></div>
+              </div>
+              <p class="muted" id="discInfo" style="margin:8px 0 0;font-size:13px">No discount. Enter a % and dates to put this product on sale.</p>
             </div>
             <label>Image <span style="font-weight:400">(main photo — optional if each colour has its own photo)</span></label><input name="image" type="file" accept="image/*" />
             <img id="preview" class="hidden" style="width:96px;height:96px;object-fit:cover;border-radius:8px;margin-top:8px" alt="" />
@@ -1186,7 +1199,7 @@
     // 6.0 colours & sizes: photo + optional price per colour, stock per colour and size · 6.1 size ranges like 3-9
     // 6.2 cost price per colour, R money boxes, selling price optional when every colour has a price
     // 6.3 product list shows price, cost, margin and stock per colour
-    const APP_VERSION = "7.7";
+    const APP_VERSION = "7.8";
     const LOGIN_DOMAIN = "nooknovelty.local";   // hidden login address for usernames (must match manage-users)
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
@@ -1737,6 +1750,12 @@
     }
 
     // price / cost / margin cells: one line per colour when a product has colours
+    function saleTag(p) {
+      const pct = discountNow(p);
+      if (!pct) return "";
+      const left = p.discount_end ? daysLeft(p.discount_end) : null;
+      return `<div class="sale-tag">${Number(pct)}% off${left == null ? "" : left === 0 ? " · last day" : ` · ${left} day${left === 1 ? "" : "s"} left`}</div>`;
+    }
     function priceCells(p) {
       const cols = optionsOf(p.id).colors;
       const none = '<span class="muted">—</span>';
@@ -1771,7 +1790,7 @@
                      (!q || p.name.toLowerCase().includes(q) || catName(p.category_id).toLowerCase().includes(q)))
         .map(p => `<tr>
           <td>${(() => { const src = p.image_url || optionsOf(p.id).colors.find(c => c.image_url)?.image_url; return src ? `<img src="${esc(src)}" alt="">` : ""; })()}</td>
-          <td>${esc(p.name)}${(() => { const o = optionsOf(p.id), sz = parseSizes(p.sizes);
+          <td>${esc(p.name)}${saleTag(p)}${(() => { const o = optionsOf(p.id), sz = parseSizes(p.sizes);
               return o.variants.length ? `<div>${o.colors.length ? `<span class="opt-chip">${o.colors.length} colour${o.colors.length > 1 ? "s" : ""}</span>` : ""}${sz.length ? `<span class="opt-chip">sizes ${esc(sz[0])}–${esc(sz[sz.length - 1])}</span>` : ""}</div>` : ""; })()}</td>
           <td>${esc(catName(p.category_id))}</td>
           <td>${esc(supName(p.supplier_id))}</td>
@@ -1971,8 +1990,34 @@
       loadProducts();
     }
 
+    // ----- discounts: is it running today, and how many days are left -----
+    const todayStr = () => new Date().toLocaleDateString("en-CA");   // yyyy-mm-dd (local)
+    function discountNow(p) {
+      const pct = Number(p.discount_pct) || 0, t = todayStr();
+      if (pct <= 0 || (p.discount_start && t < p.discount_start) || (p.discount_end && t > p.discount_end)) return 0;
+      return pct;
+    }
+    const daysLeft = end => Math.round((new Date(end + "T00:00") - new Date(todayStr() + "T00:00")) / 864e5);
+    function updateDiscInfo() {
+      const pct = Number(form.discount_pct.value) || 0, st = form.discount_start.value, en = form.discount_end.value;
+      const fmt = d => new Date(d + "T00:00").toLocaleDateString(cfg.LOCALE, { day: "numeric", month: "short", year: "numeric" });
+      let t = "No discount. Enter a % and dates to put this product on sale.", warn = false;
+      if (pct > 0) {
+        const p = { discount_pct: pct, discount_start: st, discount_end: en };
+        const when = `${st ? "from " + fmt(st) : "from now"}${en ? " to " + fmt(en) : " (no end date)"}`;
+        if (en && st && en < st) { t = "The end date is before the start date."; warn = true; }
+        else if (en && todayStr() > en) { t = `${pct}% off ${when} — this discount has ended.`; warn = true; }
+        else if (st && todayStr() < st) t = `${pct}% off ${when} — starts in ${daysLeft(st)} day(s).`;
+        else t = `${pct}% off ${when} — on sale now${en ? `, ${daysLeft(en) === 0 ? "last day today" : daysLeft(en) + " day(s) left"}` : ""}.`;
+        if (discountNow(p) && form.price.value) t += ` Selling price ${money(form.price.value)} → ${money(Number(form.price.value) * (100 - pct) / 100)}.`;
+      }
+      $("discInfo").textContent = t; $("discInfo").style.color = warn ? "var(--danger)" : pct > 0 ? "#d92d20" : "";
+    }
+    ["discount_pct", "discount_start", "discount_end", "price"].forEach(n => form[n].addEventListener("input", updateDiscInfo));
+
     function resetForm() {
       form.reset(); form.id.value = ""; form.active.checked = true;
+      updateDiscInfo();
       updateMarginInfo();
       $("preview").classList.add("hidden");
       $("formTitle").textContent = "Add new product";
@@ -1984,7 +2029,10 @@
     function editProduct(id) {
       const p = products.find(x => x.id === id);
       form.id.value = p.id; form.name.value = p.name; form.category_id.value = p.category_id || "";
-      form.description.value = p.description || ""; form.full_description.value = p.full_description || ""; form.price.value = moneyVal(p.price); form.stock.value = p.stock;
+      form.description.value = p.description || ""; form.full_description.value = p.full_description || "";
+      form.discount_pct.value = p.discount_pct != null ? Number(p.discount_pct) : "";
+      form.discount_start.value = p.discount_start || ""; form.discount_end.value = p.discount_end || "";
+      form.price.value = moneyVal(p.price); form.stock.value = p.stock; updateDiscInfo();
       form.cost_price.value = moneyVal(p.cost_price ?? "");
       form.supplier_id.value = p.supplier_id || "";
       form.min_stock.value = p.min_stock ?? "";
@@ -2001,6 +2049,10 @@
 
     form.onsubmit = async e => {
       e.preventDefault();
+      const dp = form.discount_pct.value;
+      if (dp !== "" && (Number(dp) < 0 || Number(dp) >= 100)) return toast("The discount must be between 0 and 99%");
+      if (form.discount_start.value && form.discount_end.value && form.discount_end.value < form.discount_start.value)
+        return toast("The discount end date must be on or after the start date");
       $("saveBtn").disabled = true;
       try {
         const id = form.id.value;
@@ -2010,6 +2062,9 @@
           category_id: form.category_id.value || null,
           description: form.description.value.trim() || null,
           full_description: form.full_description.value.trim() || null,
+          discount_pct: form.discount_pct.value === "" || Number(form.discount_pct.value) <= 0 ? null : Number(form.discount_pct.value),
+          discount_start: form.discount_start.value || null,
+          discount_end: form.discount_end.value || null,
           price: form.price.value !== "" ? Number(form.price.value)
                : allColoursPriced() ? Math.min(...namedColors().map(c => Number(c.price))) : 0,
           cost_price: form.cost_price.value === "" ? null : Number(form.cost_price.value),
@@ -2025,7 +2080,8 @@
         const { data: saved, error } = id
           ? await db.from("products").update(row).eq("id", id).select("id").single()
           : await db.from("products").insert(row).select("id").single();
-        if (error) throw /full_description/.test(error.message) ? new Error("Please run update-18-full-description.sql in Supabase first") : error;
+        if (error) throw /discount/.test(error.message) ? new Error(/check/.test(error.message) ? "Check the discount: 0–99% and the end date on or after the start date" : "Please run update-20-discounts.sql in Supabase first")
+          : /full_description/.test(error.message) ? new Error("Please run update-18-full-description.sql in Supabase first") : error;
         if (withOptions) await saveOptions(saved.id);
         if (file && existing?.image_path) await db.storage.from(BUCKET).remove([existing.image_path]);
         toast(id ? "Product updated" : "Product added");

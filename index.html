@@ -34,6 +34,12 @@
     .pcard .pimg { position: relative; }
     .pcard .soldout { position: absolute; top: 10px; left: 10px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
     .price-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    /* discounts: price in bold red, % and days left in smaller red text */
+    .on-sale { color: #d92d20 !important; font-weight: 700 !important; }
+    .on-sale .was { color: var(--muted); font-weight: 400; font-size: .78em; margin-left: 4px; }
+    .sale-note { color: #d92d20; font-size: 12px; font-weight: 600; margin-top: -2px; }
+    .pm-price-row .sale-note { font-size: 13px; margin-top: 2px; }
+    .pcard .sale-badge { left: auto; right: 10px; background: #d92d20; }
     /* product window */
     .pm-back { position: fixed; inset: 0; z-index: 30; background: rgba(16,24,40,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .pm { position: relative; width: min(920px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--surface); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
@@ -220,13 +226,13 @@
     async function loadCatalog() {
       const [cats, prods, cols, vars] = await Promise.all([
         db.from("categories").select("id,name,parent_id").eq("active", true).order("sort_order").order("name"),
-        db.from("products").select("id,name,description,full_description,price,stock,category_id,image_url,sizes")
+        db.from("products").select("id,name,description,full_description,price,stock,category_id,image_url,sizes,discount_pct,discount_start,discount_end")
           .eq("active", true).order("created_at", { ascending: false }),
         db.from("product_colors").select("id,product_id,name,image_url,price,sort_order").order("sort_order"),
         db.from("product_variants").select("id,product_id,color_id,size,stock"),
       ]);
       // older databases miss newer columns (update-18: full_description, update-13: sizes): try without them
-      for (const cols of ["id,name,description,price,stock,category_id,image_url,sizes", "id,name,description,price,stock,category_id,image_url"]) {
+      for (const cols of ["id,name,description,full_description,price,stock,category_id,image_url,sizes", "id,name,description,price,stock,category_id,image_url,sizes", "id,name,description,price,stock,category_id,image_url"]) {
         if (!prods.error) break;
         const retry = await db.from("products").select(cols).eq("active", true).order("created_at", { ascending: false });
         if (!retry.error) { prods.error = null; prods.data = retry.data; }
@@ -248,6 +254,26 @@
       if (activeCat && !categories.some(c => c.id === activeCat)) activeCat = "";
       renderCats(); renderProducts(); renderCart();
       if (openPid) renderDetail();
+    }
+
+    // ----- discounts: a % off between a start and end date (checkout works it out the same way) -----
+    const todayStr = () => new Date().toLocaleDateString("en-CA");   // yyyy-mm-dd
+    function discountNow(p) {
+      const pct = Number(p.discount_pct) || 0, t = todayStr();
+      if (pct <= 0 || (p.discount_start && t < p.discount_start) || (p.discount_end && t > p.discount_end)) return 0;
+      return pct;
+    }
+    const salePrice = (p, price) => { const d = discountNow(p); return d ? Math.round(Number(price) * (100 - d)) / 100 : Number(price); };
+    function saleNote(p) {
+      const d = discountNow(p); if (!d) return "";
+      const left = p.discount_end ? Math.round((new Date(p.discount_end + "T00:00") - new Date(todayStr() + "T00:00")) / 864e5) : null;
+      return `${d}% off` + (left == null ? "" : left === 0 ? " · last day!" : ` · ${left} day${left === 1 ? "" : "s"} left`);
+    }
+    // price markup: red and bold when on sale, with the % and days left underneath
+    function priceHtml(p, price, cls, prefix = "") {
+      const d = discountNow(p);
+      if (!d) return `<span class="${cls}">${prefix}${money(price)}</span>`;
+      return `<span class="${cls} on-sale">${prefix}${money(salePrice(p, price))} <s class="was">${money(price)}</s></span>`;
     }
 
     // everything about one product's colours and sizes
@@ -277,13 +303,13 @@
         const p = products.find(x => x.id === v.product_id); if (!p) return null;
         const c = colors.find(x => x.id === v.color_id);
         return { product: p, variant: v, name: p.name,
-                 sub: [c && c.name, v.size && "Size " + v.size].filter(Boolean).join(" · "),
-                 price: Number(c && c.price != null ? c.price : p.price), stock: v.stock,
+                 sub: [c && c.name, v.size && "Size " + v.size, discountNow(p) && discountNow(p) + "% off"].filter(Boolean).join(" · "),
+                 price: salePrice(p, c && c.price != null ? c.price : p.price), stock: v.stock,
                  image: (c && c.image_url) || p.image_url };
       }
       const p = products.find(x => x.id === key);
       if (!p || variants.some(x => x.product_id === p.id)) return null;
-      return { product: p, variant: null, name: p.name, sub: "", price: Number(p.price), stock: p.stock, image: p.image_url };
+      return { product: p, variant: null, name: p.name, sub: discountNow(p) ? discountNow(p) + "% off" : "", price: salePrice(p, p.price), stock: p.stock, image: p.image_url };
     }
 
     // ----- categories: main row, then a row for each level you open (Women › Footwear › Vellies) -----
@@ -328,10 +354,10 @@
     }
     // the card in the grid: picture, name, short description and price — click it for everything else
     function priceInfo(p, o) {
-      if (!o.colors.length) return { text: money(p.price), from: false };
+      if (!o.colors.length) return { html: priceHtml(p, p.price, "price") };
       const ps = o.colors.map(c => Number(c.price != null ? c.price : p.price));
       const lo = Math.min(...ps), hi = Math.max(...ps);
-      return { text: (lo !== hi ? "From " : "") + money(lo), from: lo !== hi };
+      return { html: priceHtml(p, lo, "price", lo !== hi ? "From " : "") };
     }
     function cardHtml(p) {
       const o = optionsOf(p);
@@ -340,12 +366,13 @@
       return `
         <div class="card pcard" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — view details">
           <div class="pimg"><img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.visibility='hidden'" />
-            ${total > 0 ? "" : `<span class="soldout">Sold out</span>`}</div>
+            ${total > 0 ? "" : `<span class="soldout">Sold out</span>`}${discountNow(p) && total > 0 ? `<span class="soldout sale-badge">-${discountNow(p)}%</span>` : ""}</div>
           <div class="body">
             <h3>${esc(p.name)}</h3>
             <p>${esc(p.description || "")}</p>
-            <div class="price-row"><span class="price">${priceInfo(p, o).text}</span>
+            <div class="price-row">${priceInfo(p, o).html}
               ${o.colors.length > 1 ? `<span class="muted" style="font-size:12px">${o.colors.length} colours</span>` : ""}</div>
+            ${discountNow(p) ? `<div class="sale-note">${saleNote(p)}</div>` : ""}
           </div>
         </div>`;
     }
@@ -418,7 +445,7 @@
               <button type="button" class="pm-size ${d.c.size === sz ? "on" : ""}" data-psize="${p.id}|${esc(sz)}" ${n ? "" : "disabled"}
                 title="${n ? n + " in stock" : "Sold out"}">${esc(sz)}<span class="cnt ${n ? "" : "zero"}">${n}</span></button>`; }).join("")}</div>` : ""}
           <div class="pm-price-row">
-            <span class="pm-price">${money(d.price)}</span>
+            <span>${priceHtml(p, d.price, "pm-price")}${discountNow(p) ? `<div class="sale-note">${saleNote(p)}</div>` : ""}</span>
             <span class="muted" style="font-size:13px">${esc(d.stockText || "")}</span>
           </div>
           <div class="pm-actions">
