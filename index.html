@@ -104,18 +104,28 @@
       color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); }
     .cat-arrow:disabled { opacity: .3; cursor: default; }
     .cat-bar.no-overflow .cat-arrow { display: none; }
-    /* sub-categories: a list on the left, sub-sub-categories indented under each one */
-    .subnav { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 10px; }
-    .subnav h3 { margin: 2px 8px 8px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
-    .subnav h3 .x { display: none; border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); }
+    /* sub-categories: a list on the left (big text on a light grey panel) */
+    .subnav { background: #f4f4f4; border-radius: 4px; padding: 6px 0 10px; }
+    .subnav h3 { margin: 0 0 6px; padding: 10px 14px 10px 16px; font-size: 24px; font-weight: 800; line-height: 1.15;
+      display: flex; justify-content: space-between; align-items: center; background: var(--bg); border-left: 7px solid #111; }
+    .subnav h3 .x { display: none; border: 0; background: none; font-size: 22px; cursor: pointer; color: var(--muted); }
     .subnav ul { list-style: none; margin: 0; padding: 0; }
-    .subnav ul ul { margin-left: 14px; padding-left: 8px; border-left: 2px solid var(--border); }
-    .subnav li button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--text); font: inherit;
-      font-size: 14px; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
-    .subnav ul ul li button { font-size: 13px; padding: 5px 10px; color: var(--muted); }
-    .subnav li button:hover { background: var(--bg); color: var(--text); }
-    .subnav li button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
-    .subnav li button.in-path:not(.on) { font-weight: 600; color: var(--text); }
+    .subnav li button { display: block; width: 100%; text-align: left; border: 0; background: none; color: #1d1d1f; font: inherit;
+      font-size: 19px; line-height: 1.2; padding: 15px 20px; cursor: pointer; border-left: 4px solid transparent; }
+    .subnav li button:hover { background: #ebebeb; }
+    .subnav li button.on, .subnav li button.in-path { background: #fff; font-weight: 700; border-left-color: var(--accent); }
+    /* the categories inside the chosen one, as round photo tiles */
+    .cat-tiles { margin: 0 0 22px; }
+    .cat-tiles h2 { margin: 0 0 14px; font-size: 26px; font-weight: 800; }
+    .tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 18px 22px; }
+    .tile { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; text-align: center; color: #6b6b70; }
+    .tile .ph { display: block; width: 100%; aspect-ratio: 1/1; border-radius: 28%; overflow: hidden; background: #ececec;
+      transition: transform .15s, box-shadow .15s; }
+    .tile .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tile .nm { display: block; margin-top: 10px; font-size: 19px; line-height: 1.2; }
+    .tile:hover .ph { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,.12); }
+    .tile:hover .nm, .tile.on .nm { color: #1d1d1f; font-weight: 700; }
+    .tile.on .ph { box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--accent); }
     .subnav-open { display: none; margin: -6px 0 14px; }
     .subnav-back { display: none; }
     /* keep the description's line breaks exactly as typed in the admin */
@@ -145,6 +155,10 @@
       .subnav-back.open { display: block; position: fixed; inset: 0; z-index: 24; background: rgba(0,0,0,.35); }
       .subnav-open:not(.hidden) { display: inline-flex; align-items: center; gap: 6px; }
       .cat-arrow { display: none; }
+      .subnav { padding-top: 0; background: #f4f4f4; }
+      .tile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+      .tile .nm { font-size: 14px; margin-top: 6px; }
+      .cat-tiles h2 { font-size: 21px; }
     }
   </style>
 </head>
@@ -176,6 +190,7 @@
         <button class="cat-arrow right" type="button" id="catRight" aria-label="Scroll categories right">›</button>
       </div>
       <button class="btn subnav-open hidden" type="button" id="subNavOpen"></button>
+      <section class="cat-tiles hidden" id="catTiles"></section>
       <div id="products" class="grid"></div>
       <p id="empty" class="muted hidden">No products found.</p>
     </div>
@@ -402,9 +417,8 @@
       // the chosen main category's sub-categories (and their sub-categories) in the side panel
       const kids = root ? catKids(root.id).filter(k => catHasProducts(k.id)) : [];
       const tree = list => `<ul>${list.map(c => {
-        const sub = catKids(c.id).filter(k => catHasProducts(k.id));
         const cls = c.id === activeCat ? "on" : trail.some(t => t.id === c.id) ? "in-path" : "";
-        return `<li><button type="button" class="${cls}" data-cat="${c.id}">${esc(c.name)}</button>${sub.length ? tree(sub) : ""}</li>`;
+        return `<li><button type="button" class="${cls}" data-cat="${c.id}">${esc(c.name)}</button></li>`;
       }).join("")}</ul>`;
       const sn = $("subNav");
       sn.classList.toggle("hidden", !kids.length);
@@ -414,7 +428,32 @@
       $("subNavOpen").classList.toggle("hidden", !kids.length);
       $("subNavOpen").innerHTML = kids.length ? `☰ ${esc(root.name)}${label ? " › " + esc(label) : " — choose a category"}` : "";
       if (!kids.length) toggleSubNav(false);
+      renderTiles(trail);
       setTimeout(updateCatArrows, 0);
+    }
+    // photo tiles for the categories inside the chosen one (the picture comes from a product in that category)
+    function catImage(id) {
+      const ids = catWithSubs(id);
+      for (const p of products) {
+        if (!ids.has(p.category_id)) continue;
+        const img = p.image_url || (colors.find(c => c.product_id === p.id && c.image_url) || {}).image_url;
+        if (img) return img;
+      }
+      return "";
+    }
+    function renderTiles(trail) {
+      const box = $("catTiles"), cur = trail[trail.length - 1];
+      if (!cur) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+      let parent = cur, list = catKids(cur.id).filter(k => catHasProducts(k.id));
+      // the last level has no categories inside it: keep showing it with its neighbours
+      if (!list.length && trail.length > 2) { parent = trail[trail.length - 2]; list = catKids(parent.id).filter(k => catHasProducts(k.id)); }
+      if (!list.length || trail.length < 2 && !list.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+      box.classList.remove("hidden");
+      box.innerHTML = `<h2>Shop ${esc(parent.name)}</h2><div class="tile-grid">` + list.map(c => {
+        const img = catImage(c.id);
+        return `<button type="button" class="tile ${c.id === activeCat ? "on" : ""}" data-cat="${c.id}">
+          <span class="ph">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ""}</span><span class="nm">${esc(c.name)}</span></button>`;
+      }).join("") + `</div>`;
     }
     function toggleSubNav(open) {
       $("subNav").classList.toggle("open", open);
