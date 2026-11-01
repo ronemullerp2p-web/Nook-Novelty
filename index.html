@@ -134,7 +134,14 @@
     .tile .tp .price { font-weight: 600; }
     .tile .tp .was { font-size: .85em; }
     .tile.on .ph { box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--accent); }
-    .subnav-open { display: none; margin: -6px 0 14px; }
+    .subnav-open { display: none !important; }
+    .sub-chips { display: none; }
+    .sub-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px 0; }
+    .sub-row::-webkit-scrollbar { display: none; }
+    .sub-row .btn { flex: none; white-space: nowrap; font-size: 13px; padding: 5px 12px; border-radius: 99px; }
+    .sub-row .btn.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .sub-row.lvl3 { padding-left: 10px; border-left: 2px solid var(--border); }
+    .sub-row.lvl3 .btn { font-size: 12px; padding: 4px 10px; }
     .subnav-back { display: none; }
     /* keep the description's line breaks exactly as typed in the admin */
     .card .body p { white-space: pre-line; overflow-wrap: anywhere; }
@@ -156,13 +163,9 @@
       .shop-side, .shop-content { grid-column: 1; }
       .shop-side { position: static; width: 160px; max-height: none; overflow: visible; }
       /* on phones the sub-categories slide in from the left */
-      .subnav { position: fixed; top: 64px; left: 0; z-index: 25; width: min(210px, 60vw); max-height: calc(100vh - 84px); max-height: calc(100dvh - 84px);
-        border-radius: 0 12px 12px 0; border-left: 0; overflow-y: auto; transform: translateX(-105%); transition: transform .2s;
-        box-shadow: 0 10px 30px rgba(0,0,0,.18); }
-      .subnav.open { transform: none; }
-      .subnav h3 .x { display: block; }
-      .subnav-back.open { display: block; position: fixed; inset: 0; z-index: 24; background: rgba(0,0,0,.35); }
-      .subnav-open:not(.hidden) { display: inline-flex; align-items: center; gap: 6px; }
+      /* phones: no side panel — the sub-categories show as rows of buttons under the main categories */
+      .subnav { display: none !important; }
+      .sub-chips { display: flex; flex-direction: column; gap: 8px; margin: -6px 0 16px; }
       .cat-arrow { display: none; }
 
       .tile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -199,6 +202,7 @@
         <button class="cat-arrow right" type="button" id="catRight" aria-label="Scroll categories right">›</button>
       </div>
       <button class="btn subnav-open hidden" type="button" id="subNavOpen"></button>
+      <div class="sub-chips" id="subChips"></div>
       <section class="cat-tiles hidden" id="catTiles"></section>
       <div id="products" class="grid"></div>
       <p id="empty" class="muted hidden">No products found.</p>
@@ -438,6 +442,18 @@
       $("subNavOpen").classList.toggle("hidden", !kids.length);
       $("subNavOpen").innerHTML = kids.length ? `☰ ${esc(root.name)}${label ? " › " + esc(label) : " — choose a category"}` : "";
       if (!kids.length) toggleSubNav(false);
+      // phones: rows of buttons — sub-categories, then the sub-sub-categories of the one picked
+      let chips = "";
+      if (kids.length) {
+        chips += `<div class="sub-row"><button class="btn ${activeCat === root.id ? "active" : ""}" data-cat="${root.id}">All ${esc(root.name)}</button>` +
+          kids.map(c => `<button class="btn ${trail.some(t => t.id === c.id) ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("") + `</div>`;
+        for (const t of trail.slice(1)) {
+          const sub = catKids(t.id).filter(k => catHasProducts(k.id));
+          if (sub.length) chips += `<div class="sub-row lvl3"><button class="btn ${activeCat === t.id ? "active" : ""}" data-cat="${t.id}">All ${esc(t.name)}</button>` +
+            sub.map(c => `<button class="btn ${trail.some(x => x.id === c.id) ? "active" : ""}" data-cat="${c.id}">${esc(c.name)}</button>`).join("") + `</div>`;
+        }
+      }
+      $("subChips").innerHTML = chips;
       renderTiles(trail);
       setTimeout(updateCatArrows, 0);
     }
@@ -767,7 +783,7 @@
         const id = cb.dataset.cat, fromMain = !!cb.closest("#cats"), c = categories.find(x => x.id === id);
         activeCat = id; renderCats(); renderProducts();
         // phones: picking a main category with sub-categories opens the side panel; picking in the panel closes it
-        if (isPhone()) toggleSubNav(fromMain && !!c && catKids(c.id).some(k => catHasProducts(k.id)));
+        // (phones show the sub-categories as button rows instead of a side panel)
         if (fromMain) cb.scrollIntoView({ block: "nearest", inline: "nearest" });
       }
       if (e.target.closest("[data-subclose]")) toggleSubNav(false);
