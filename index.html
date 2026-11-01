@@ -118,13 +118,19 @@
     .cat-tiles { margin: 0 0 22px; }
     .cat-tiles h2 { margin: 0 0 14px; font-size: 26px; font-weight: 800; }
     .tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 18px 22px; }
-    .tile { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; text-align: center; color: #6b6b70; }
+    .tile { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; text-align: center; color: #6b6b70;
+      align-self: start; display: flex; flex-direction: column; align-items: stretch; }
     .tile .ph { display: block; width: 100%; aspect-ratio: 1/1; border-radius: 28%; overflow: hidden; background: #ececec;
       transition: transform .15s, box-shadow .15s; }
     .tile .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .tile .nm { display: block; margin-top: 10px; font-size: 19px; line-height: 1.2; }
     .tile:hover .ph { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,.12); }
     .tile:hover .nm, .tile.on .nm { color: #1d1d1f; font-weight: 700; }
+    .tile .ph { position: relative; }
+    .tile .tile-sale { position: absolute; top: 8px; right: 8px; background: #d92d20; color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+    .tile .tp { display: block; margin-top: 2px; font-size: 14px; color: var(--text); }
+    .tile .tp .price { font-weight: 600; }
+    .tile .tp .was { font-size: .85em; }
     .tile.on .ph { box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--accent); }
     .subnav-open { display: none; margin: -6px 0 14px; }
     .subnav-back { display: none; }
@@ -443,7 +449,19 @@
     }
     function renderTiles(trail) {
       const box = $("catTiles"), cur = trail[trail.length - 1];
-      if (!cur) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+      if (!cur) {   // "All": the 20 newest products as photo tiles (products are loaded newest first)
+        const q = $("search").value.trim();
+        const newest = products.slice(0, 20);
+        if (q || !newest.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+        box.classList.remove("hidden");
+        box.innerHTML = `<h2>New In</h2><div class="tile-grid">` + newest.map(p => {
+          const o = optionsOf(p), img = p.image_url || (o.colors.find(c => c.image_url) || {}).image_url || "";
+          return `<button type="button" class="tile" data-open="${p.id}">
+            <span class="ph">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ""}</span>
+            <span class="nm">${esc(p.name)}</span></button>`;
+        }).join("") + `</div>`;
+        return;
+      }
       let parent = cur, list = catKids(cur.id).filter(k => catHasProducts(k.id));
       // the last level has no categories inside it: keep showing it with its neighbours
       if (!list.length && trail.length > 2) { parent = trail[trail.length - 2]; list = catKids(parent.id).filter(k => catHasProducts(k.id)); }
@@ -479,6 +497,9 @@
       // a category that has sub-categories shows only their photo tiles (plus any products placed directly in it);
       // the products appear once you open the last level, e.g. Women › Footwear › Vellies. A search looks everywhere.
       const hasSubs = activeCat && catKids(activeCat).some(k => catHasProducts(k.id));
+      const allTiles = !activeCat && !q && products.length > 0;   // "All" shows the New In tiles instead
+      renderTiles(catTrail(activeCat));
+      if (allTiles) { $("products").innerHTML = ""; $("empty").classList.add("hidden"); return; }
       const catSet = !activeCat ? null : hasSubs && !q ? new Set([activeCat]) : catWithSubs(activeCat);
       const list = products.filter(p =>
         (!catSet || catSet.has(p.category_id)) &&
