@@ -28,6 +28,44 @@
       border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05); }
     .shop-content { grid-column: 2; min-width: 0; }
     .shop-content > .toolbar:first-child { margin-top: 0; }   /* top of search = top of logo */
+    /* product cards: click to open the product window */
+    .pcard { cursor: pointer; transition: box-shadow .15s, transform .15s; }
+    .pcard:hover, .pcard:focus-visible { box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 10px 28px rgba(0,0,0,.1); transform: translateY(-2px); outline: none; }
+    .pcard .pimg { position: relative; }
+    .pcard .soldout { position: absolute; top: 10px; left: 10px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
+    .price-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    /* product window */
+    .pm-back { position: fixed; inset: 0; z-index: 30; background: rgba(16,24,40,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .pm { position: relative; width: min(920px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--surface); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+    .pm-close { position: absolute; top: 10px; right: 10px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 16px; }
+    .pm-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .pm-img { position: relative; background: var(--border); min-height: 440px; border-radius: 16px 0 0 16px; overflow: hidden; }
+    .pm-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pm-info { padding: 26px 24px 22px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .pm-info h2 { margin: 0; font-size: 22px; padding-right: 36px; }
+    .pm-desc { margin: 0; color: var(--muted); font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; }
+    .pm-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .pm-label strong { color: var(--text); }
+    .pm-swatches .swatch { width: 44px; height: 44px; }
+    .pm-sizes { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 6px; }
+    .pm-size { position: relative; min-width: 46px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+    .pm-size.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .pm-size:disabled { opacity: .45; text-decoration: line-through; cursor: not-allowed; }
+    .pm-size .cnt { position: absolute; top: -8px; right: -8px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px; background: #d92d20; color: #fff;
+      font-size: 11px; font-weight: 700; line-height: 19px; text-align: center; text-decoration: none; box-shadow: 0 0 0 2px var(--surface); }
+    .pm-size .cnt.zero { background: #9a9aa0; }
+    .pm-price-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 6px; }
+    .pm-price { font-size: 24px; font-weight: 700; }
+    .pm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pm-actions .btn { padding: 11px 18px; }
+    .pm-actions .btn.primary { flex: 1 1 160px; }
+    .pm-full { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+    .pm-full h3 { margin: 0 0 6px; font-size: 15px; }
+    .pm-full div { font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.6; }
+    @media (max-width: 700px) {
+      .pm-body { grid-template-columns: 1fr; }
+      .pm-img { min-height: 0; aspect-ratio: 1/1; max-height: 56vh; border-radius: 16px 16px 0 0; }
+    }
     /* category rows: main categories, then the sub-categories of the one you picked */
     .cats { flex-direction: column; gap: 8px; }
     .cats-row { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -82,6 +120,12 @@
   <footer class="shop-footer hidden" id="footer"><div class="inner" id="footerInner"></div></footer>
 
   <div class="overlay" id="overlay"></div>
+  <div class="pm-back hidden" id="pmodal" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+    <div class="pm">
+      <button class="pm-close" type="button" aria-label="Close">✕</button>
+      <div class="pm-body" id="pmBody"></div>
+    </div>
+  </div>
   <aside class="drawer" id="cart">
     <div class="head"><strong id="drawerTitle">Your cart</strong></div>
     <div class="content">
@@ -169,17 +213,17 @@
     async function loadCatalog() {
       const [cats, prods, cols, vars] = await Promise.all([
         db.from("categories").select("id,name,parent_id").eq("active", true).order("sort_order").order("name"),
-        db.from("products").select("id,name,description,price,stock,category_id,image_url,sizes")
+        db.from("products").select("id,name,description,full_description,price,stock,category_id,image_url,sizes")
           .eq("active", true).order("created_at", { ascending: false }),
         db.from("product_colors").select("id,product_id,name,image_url,price,sort_order").order("sort_order"),
         db.from("product_variants").select("id,product_id,color_id,size,stock"),
       ]);
-      if (prods.error) {
-        // before update-13 the "sizes" column doesn't exist yet: load without it
-        const retry = await db.from("products").select("id,name,description,price,stock,category_id,image_url")
-          .eq("active", true).order("created_at", { ascending: false });
-        if (retry.error) { toast("Could not load products: " + retry.error.message); return; }
-        prods.data = retry.data;
+      // older databases miss newer columns (update-18: full_description, update-13: sizes): try without them
+      for (const cols of ["id,name,description,price,stock,category_id,image_url,sizes", "id,name,description,price,stock,category_id,image_url"]) {
+        if (!prods.error) break;
+        const retry = await db.from("products").select(cols).eq("active", true).order("created_at", { ascending: false });
+        if (!retry.error) { prods.error = null; prods.data = retry.data; }
+        else if (cols.indexOf("sizes") < 0) { toast("Could not load products: " + retry.error.message); return; }
       }
       if (cats.error) {   // before update-17 there are no sub-categories yet
         const retry = await db.from("categories").select("id,name").eq("active", true).order("sort_order").order("name");
@@ -196,6 +240,7 @@
       storeCart();
       if (activeCat && !categories.some(c => c.id === activeCat)) activeCat = "";
       renderCats(); renderProducts(); renderCart();
+      if (openPid) renderDetail();
     }
 
     // everything about one product's colours and sizes
@@ -269,60 +314,100 @@
       const list = products.filter(p =>
         (!catSet || catSet.has(p.category_id)) &&
         (!q || p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) ||
+               (p.full_description || "").toLowerCase().includes(q) ||
                colors.some(c => c.product_id === p.id && c.name.toLowerCase().includes(q))));
       $("empty").classList.toggle("hidden", list.length > 0);
       $("products").innerHTML = list.map(cardHtml).join("");
     }
+    // the card in the grid: picture, name, short description and price — click it for everything else
+    function priceInfo(p, o) {
+      if (!o.colors.length) return { text: money(p.price), from: false };
+      const ps = o.colors.map(c => Number(c.price != null ? c.price : p.price));
+      const lo = Math.min(...ps), hi = Math.max(...ps);
+      return { text: (lo !== hi ? "From " : "") + money(lo), from: lo !== hi };
+    }
     function cardHtml(p) {
       const o = optionsOf(p);
-      if (!o.has) return `
-        <div class="card">
-          <img src="${esc(p.image_url || "")}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />
+      const total = o.has ? o.variants.reduce((t, x) => t + x.stock, 0) : p.stock;
+      const img = p.image_url || (o.colors.find(x => x.image_url) || {}).image_url || "";
+      return `
+        <div class="card pcard" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — view details">
+          <div class="pimg"><img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.visibility='hidden'" />
+            ${total > 0 ? "" : `<span class="soldout">Sold out</span>`}</div>
           <div class="body">
             <h3>${esc(p.name)}</h3>
             <p>${esc(p.description || "")}</p>
-            <div class="line" style="border:0;padding:0">
-              <span class="price">${money(p.price)}</span>
-              <span class="muted" style="font-size:12px">${p.stock > 0 ? p.stock + " in stock" : "Sold out"}</span>
-            </div>
-            <button class="btn primary" data-add="${p.id}" ${p.stock > 0 ? "" : "disabled"}>Add to cart</button>
+            <div class="price-row"><span class="price">${priceInfo(p, o).text}</span>
+              ${o.colors.length > 1 ? `<span class="muted" style="font-size:12px">${o.colors.length} colours</span>` : ""}</div>
           </div>
         </div>`;
-      const c = choice(p, o), col = o.colors.find(x => x.id === c.color);
-      const v = variantFor(p, o, c);
-      const img = (col && col.image_url) || p.image_url || (o.colors.find(x => x.image_url) || {}).image_url || "";
-      const price = col && col.price != null ? col.price : p.price;
-      const total = o.variants.reduce((t, x) => t + x.stock, 0);
-      const needSize = o.sizes.length > 1 && !c.size;
-      const stockText = total === 0 ? "Sold out" : needSize ? "Choose a size" : v ? (v.stock > 0 ? v.stock + " in stock" : "Sold out") : "";
-      const sizeStock = sz => o.variants.filter(x => x.size === sz && (!o.colors.length || x.color_id === c.color)).reduce((t, x) => t + x.stock, 0);
+    }
+
+    // ---------- PRODUCT WINDOW: picture, colours, sizes (with stock), price, Add to cart, Full details ----------
+    let openPid = null, showFull = false;
+    function openProduct(pid) {
+      openPid = pid; showFull = false;
+      renderDetail();
+      $("pmodal").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      $("pmodal").querySelector(".pm-close").focus();
+    }
+    function closeProduct() {
+      openPid = null;
+      $("pmodal").classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+    function renderDetail() {
+      const p = products.find(x => x.id === openPid);
+      if (!p) return closeProduct();
+      const o = optionsOf(p);
+      let html;
+      if (!o.has) {
+        html = detailHtml(p, o, { img: p.image_url, price: p.price, stockText: p.stock > 0 ? p.stock + " in stock" : "Sold out", canAdd: p.stock > 0 });
+      } else {
+        const c = choice(p, o), col = o.colors.find(x => x.id === c.color);
+        const v = variantFor(p, o, c);
+        const total = o.variants.reduce((t, x) => t + x.stock, 0);
+        const needSize = o.sizes.length > 1 && !c.size;
+        html = detailHtml(p, o, {
+          c, col,
+          img: (col && col.image_url) || p.image_url || (o.colors.find(x => x.image_url) || {}).image_url || "",
+          price: col && col.price != null ? col.price : p.price,
+          stockText: total === 0 ? "Sold out" : needSize ? "Please choose a size" : v ? (v.stock > 0 ? v.stock + " in stock" : "Sold out") : "",
+          canAdd: total > 0 && !(v && v.stock === 0),
+          sizeStock: sz => o.variants.filter(x => x.size === sz && (!o.colors.length || x.color_id === c.color)).reduce((t, x) => t + x.stock, 0),
+        });
+      }
+      $("pmBody").innerHTML = html;
+    }
+    function detailHtml(p, o, d) {
+      const full = (p.full_description || "").trim();
       return `
-        <div class="card">
-          <img src="${esc(img)}" alt="${esc(p.name + (col ? " – " + col.name : ""))}" loading="lazy" onerror="this.style.visibility='hidden'" />
-          <div class="body">
-            <h3>${esc(p.name)}</h3>
-            <p>${esc(p.description || "")}</p>
-            ${o.colors.length ? `
-              <div class="opt-name" style="margin:-4px 0 -2px">Colours</div>
-              <div class="opt-row">
-                <div class="swatches">${o.colors.map(x => `
-                  <button type="button" class="swatch ${x.id === c.color ? "on" : ""} ${colorStock(o, x.id) ? "" : "out"}"
-                    data-pcol="${p.id}|${x.id}" title="${esc(x.name)}${colorStock(o, x.id) ? "" : " — sold out"}">
-                    ${x.image_url ? `<img src="${esc(x.image_url)}" alt="${esc(x.name)}" loading="lazy">` : `<span>${esc(x.name.slice(0, 2))}</span>`}
-                  </button>`).join("")}</div>
-                <span class="opt-name">${esc(col ? col.name : "")}</span>
-              </div>` : ""}
-            <div class="price-row">
-              <span class="price">${money(price)}</span>
-              ${o.sizes.length > 1 ? `
-                <select class="size-sel ${c.size ? "" : "need"}" data-psel="${p.id}" aria-label="Size">
-                  <option value="" ${c.size ? "" : "selected"} disabled>Size</option>
-                  ${o.sizes.map(sz => `<option value="${esc(sz)}" ${c.size === sz ? "selected" : ""} ${sizeStock(sz) ? "" : "disabled"}>${esc(sz)}${sizeStock(sz) ? "" : " – sold out"}</option>`).join("")}
-                </select>` : o.sizes.length ? `<span class="muted" style="font-size:12px">Size ${esc(o.sizes[0])}</span>` : ""}
-            </div>
-            ${stockText && !needSize ? `<div class="muted" style="font-size:12px;margin-top:-4px">${stockText}</div>` : ""}
-            <button class="btn primary" data-add="${p.id}" ${total === 0 || (v && v.stock === 0) ? "disabled" : ""}>Add to cart</button>
+        <div class="pm-img"><img src="${esc(d.img || "")}" alt="${esc(p.name + (d.col ? " – " + d.col.name : ""))}" onerror="this.style.visibility='hidden'" /></div>
+        <div class="pm-info">
+          <h2 id="pmTitle">${esc(p.name)}</h2>
+          ${p.description ? `<p class="pm-desc">${esc(p.description)}</p>` : ""}
+          ${o.colors.length ? `
+            <div class="pm-label">Colour: <strong>${esc(d.col ? d.col.name : "")}</strong></div>
+            <div class="swatches pm-swatches">${o.colors.map(x => `
+              <button type="button" class="swatch ${d.col && x.id === d.col.id ? "on" : ""} ${colorStock(o, x.id) ? "" : "out"}"
+                data-pcol="${p.id}|${x.id}" title="${esc(x.name)}${colorStock(o, x.id) ? "" : " — sold out"}">
+                ${x.image_url ? `<img src="${esc(x.image_url)}" alt="${esc(x.name)}">` : `<span>${esc(x.name.slice(0, 2))}</span>`}
+              </button>`).join("")}</div>` : ""}
+          ${o.sizes.length ? `
+            <div class="pm-label">Size${d.c && d.c.size ? `: <strong>${esc(d.c.size)}</strong>` : ""}</div>
+            <div class="pm-sizes">${o.sizes.map(sz => { const n = d.sizeStock(sz); return `
+              <button type="button" class="pm-size ${d.c.size === sz ? "on" : ""}" data-psize="${p.id}|${esc(sz)}" ${n ? "" : "disabled"}
+                title="${n ? n + " in stock" : "Sold out"}">${esc(sz)}<span class="cnt ${n ? "" : "zero"}">${n}</span></button>`; }).join("")}</div>` : ""}
+          <div class="pm-price-row">
+            <span class="pm-price">${money(d.price)}</span>
+            <span class="muted" style="font-size:13px">${esc(d.stockText || "")}</span>
           </div>
+          <div class="pm-actions">
+            <button class="btn primary" data-add="${p.id}" ${d.canAdd ? "" : "disabled"}>Add to cart</button>
+            ${full ? `<button class="btn" type="button" data-full="1" aria-expanded="${showFull}">${showFull ? "Hide full details" : "Full details"}</button>` : ""}
+          </div>
+          ${full && showFull ? `<div class="pm-full"><h3>Full details</h3><div>${esc(full)}</div></div>` : ""}
         </div>`;
     }
 
@@ -432,6 +517,11 @@
     }
 
     // ---------- EVENTS ----------
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && openPid) closeProduct();
+      const card = e.target.closest && e.target.closest("[data-open]");
+      if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openProduct(card.dataset.open); }
+    });
     document.addEventListener("change", e => {
       const s = e.target.closest("[data-psel]");
       if (s) { (sel[s.dataset.psel] = sel[s.dataset.psel] || {}).size = s.value; renderProducts(); }
@@ -439,8 +529,12 @@
     document.addEventListener("click", e => {
       const d = e.target.dataset;
       const t = e.target.closest("[data-pcol],[data-psize]");
-      if (t && t.dataset.pcol) { const [pid, cid] = t.dataset.pcol.split("|"); (sel[pid] = sel[pid] || {}).color = cid; renderProducts(); return; }
-      if (t && t.dataset.psize) { const [pid, sz] = t.dataset.psize.split("|"); (sel[pid] = sel[pid] || {}).size = sz; renderProducts(); return; }
+      if (t && t.dataset.pcol) { const [pid, cid] = t.dataset.pcol.split("|"); (sel[pid] = sel[pid] || {}).color = cid; renderDetail(); return; }
+      if (t && t.dataset.psize) { const [pid, sz] = t.dataset.psize.split("|"); (sel[pid] = sel[pid] || {}).size = sz; renderDetail(); return; }
+      if (e.target.closest("[data-full]")) { showFull = !showFull; renderDetail(); if (showFull) $("pmodal").querySelector(".pm-full")?.scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
+      if (e.target.closest(".pm-close") || e.target.id === "pmodal") { closeProduct(); return; }
+      const card = e.target.closest("[data-open]");
+      if (card) { openProduct(card.dataset.open); return; }
       if (d.add) addToCart(d.add);
       if (d.inc) addKey(d.inc);
       if (d.dec) { cart[d.dec]--; if (cart[d.dec] <= 0) delete cart[d.dec]; saveCart(); }
