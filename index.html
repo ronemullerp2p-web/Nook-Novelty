@@ -143,7 +143,12 @@
       <div id="doneView" class="hidden"></div>
     </div>
     <div class="foot" id="cartFoot">
-      <div class="line" style="border:0"><strong>Total</strong><strong id="cartTotal">R0.00</strong></div>
+      <div id="cartSums">
+        <div class="line sum-sub hidden" style="border:0;padding:2px 0"><span class="muted">Subtotal</span><span id="cartSub">R0.00</span></div>
+        <div class="line sum-ship hidden" style="border:0;padding:2px 0"><span class="muted">Shipping</span><span id="cartShip">R0.00</span></div>
+        <div class="muted ship-note hidden" id="shipNote" style="font-size:12px;margin:2px 0 4px"></div>
+        <div class="line" style="border:0"><strong>Total</strong><strong id="cartTotal">R0.00</strong></div>
+      </div>
       <button class="btn primary" id="checkoutBtn" style="width:100%">Checkout</button>
       <button class="btn" id="closeCart" style="width:100%;margin-top:8px">Continue shopping</button>
     </div>
@@ -178,6 +183,7 @@
     async function loadSettings() {
       const { data } = await db.from("settings").select("data").eq("id", 1).maybeSingle();
       settings = data?.data || {};
+      if (products.length) renderCart();   // shipping fee may have arrived after the products
       const name = settings.business_name || cfg.SHOP_NAME || "Shop";
       document.title = settings.tagline ? `${name} — ${settings.tagline}` : name;
       $("shopName").textContent = name;
@@ -444,6 +450,10 @@
       if (announce) toast(`${L.name}${L.sub ? " (" + L.sub + ")" : ""} added to cart`);
     }
 
+    function shippingFor(subtotal) {
+      const fee = Number(settings.shipping_fee) || 0, free = Number(settings.free_shipping_from) || 0;
+      return fee > 0 && !(free > 0 && subtotal >= free) ? fee : 0;
+    }
     function renderCart() {
       const keys = Object.keys(cart).filter(k => lineInfo(k));
       let total = 0, count = 0;
@@ -460,8 +470,18 @@
             <button class="btn" data-inc="${k}">+</button>
           </div></div>`;
       }).join("") : '<p class="muted">Your cart is empty.</p>';
+      // shipping: Settings > Courier & Shipping Fees (the server works it out the same way when the order is placed)
+      const ship = shippingFor(total), fee = Number(settings.shipping_fee) || 0, free = Number(settings.free_shipping_from) || 0;
+      const showShip = count > 0 && fee > 0;
+      document.querySelector("#cartSums .sum-sub").classList.toggle("hidden", !showShip);
+      document.querySelector("#cartSums .sum-ship").classList.toggle("hidden", !showShip);
+      $("cartSub").textContent = money(total);
+      $("cartShip").innerHTML = ship === 0 ? `<strong style="color:var(--accent)">Free</strong>` : money(ship);
+      const note = !showShip || !free ? "" : ship === 0 ? "🎉 You qualify for free shipping!"
+        : `Add ${money(free - total)} more for free shipping (orders of ${money(free)}+).`;
+      $("shipNote").textContent = note; $("shipNote").classList.toggle("hidden", !note);
       $("cartCount").textContent = count;
-      $("cartTotal").textContent = money(total);
+      $("cartTotal").textContent = money(total + (count ? ship : 0));
       $("checkoutBtn").disabled = count === 0;
     }
 
@@ -473,7 +493,7 @@
         $("checkoutBtn").textContent = "Checkout";
         $("cartView").classList.remove("hidden");
         $("doneView").classList.add("hidden");
-        $("cartFoot").querySelector(".line").classList.remove("hidden");
+        $("cartSums").classList.remove("hidden");
         $("checkoutBtn").classList.remove("hidden");
         $("closeCart").textContent = "Continue shopping";
         $("drawerTitle").textContent = "Your cart";
@@ -498,7 +518,7 @@
         ${s.payment_note ? `<p class="muted" style="font-size:14px;white-space:pre-line">${esc(s.payment_note)}</p>` : ""}`;
       $("cartView").classList.add("hidden");
       $("doneView").classList.remove("hidden");
-      $("cartFoot").querySelector(".line").classList.add("hidden");
+      $("cartSums").classList.add("hidden");
       $("checkoutBtn").classList.add("hidden");
       $("closeCart").textContent = "Back to shop";
       $("drawerTitle").textContent = "Order placed";
@@ -516,7 +536,8 @@
       const f = Object.fromEntries(new FormData(form));
       const lines = Object.entries(cart).map(([key, qty]) => ({ L: lineInfo(key), key, qty })).filter(x => x.L);
       const items = lines.map(({ L, key, qty }) => L.variant ? { id: L.product.id, variant_id: key, qty } : { id: key, qty });
-      const total = lines.reduce((t, x) => t + x.L.price * x.qty, 0);
+      const sub = lines.reduce((t, x) => t + x.L.price * x.qty, 0);
+      const total = sub + shippingFor(sub);
       $("checkoutBtn").disabled = true;
       const { data, error } = await db.rpc("place_order", { p_customer: f, p_items: items });
       $("checkoutBtn").disabled = false;

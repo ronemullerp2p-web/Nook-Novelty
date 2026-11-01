@@ -283,6 +283,9 @@
     .cat-name .tw { color: var(--muted); flex: none; font-size: 13px; }
     .cat-row select { width: 200px; padding: 6px 8px; font-size: 13px; }
     .cat-row td:nth-child(4) { white-space: nowrap; }
+    .ship-info { display: block; margin-top: 5px; padding: 3px 7px; border: 1px dashed var(--border); border-radius: 6px; background: none;
+      color: var(--muted); font: inherit; font-size: 12px; line-height: 1.35; text-align: left; cursor: pointer; }
+    .ship-info:hover { color: var(--accent); border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -383,6 +386,10 @@
         <button class="nav admin-only" data-view="suppliers">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="7" width="14" height="10" rx="1"/><path d="M15 10h4l3 3v4h-7"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
           Suppliers
+        </button>
+        <button class="nav admin-only" data-view="shipping">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M7.5 5.5l9 5"/></svg>
+          Courier &amp; Shipping
         </button>
         <button class="nav admin-only" data-view="users">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M1 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/><path d="M17 4a4 4 0 010 8"/><path d="M23 21v-1a6 6 0 00-4-5.6"/></svg>
@@ -667,6 +674,58 @@
               <tbody id="supplierRows"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- ================= COURIER & SHIPPING ================= -->
+      <section id="view-shipping" class="hidden">
+        <h2>Courier &amp; Shipping Fees</h2>
+        <div class="tabs" id="shipTabs">
+          <button class="btn active" data-stab="courier">Courier</button>
+          <button class="btn" data-stab="fees">Shipping Fees</button>
+        </div>
+
+        <div id="stab-courier">
+          <div class="panel" style="margin-bottom:16px">
+            <h3 style="margin-top:0" id="courierFormTitle">Add courier</h3>
+            <form id="courierForm">
+              <input type="hidden" name="id" />
+              <div class="row2">
+                <div><label>Name *</label><input name="name" required placeholder="e.g. The Courier Guy" /></div>
+                <div><label>Contact person</label><input name="contact_person" /></div>
+              </div>
+              <div class="row2">
+                <div><label>Contact no.</label><input name="contact_no" type="tel" /></div>
+                <div><label>Email address</label><input name="email" type="email" /></div>
+              </div>
+              <label>Address</label><textarea name="address" rows="2"></textarea>
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <button class="btn primary" id="saveCourier">Save courier</button>
+                <button type="button" class="btn hidden" id="cancelCourier">Cancel edit</button>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Name</th><th>Contact person</th><th>Contact no.</th><th>Email</th><th>Address</th><th></th></tr></thead>
+                <tbody id="courierRows"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="stab-fees" class="hidden">
+          <form id="feesForm" class="panel" style="max-width:560px">
+            <h3 style="margin-top:0">Shipping fees</h3>
+            <p class="muted" style="margin:0 0 4px;font-size:13px">Added to every order at checkout. Leave the amount empty (or 0) for no shipping fee.</p>
+            <div class="row2">
+              <div><label>Amount</label><div class="money-in"><span>R</span><input name="shipping_fee" type="number" step="0.01" min="0" placeholder="0.00" /></div></div>
+              <div><label>Free shipping amount</label><div class="money-in"><span>R</span><input name="free_shipping_from" type="number" step="0.01" min="0" placeholder="0.00" /></div></div>
+            </div>
+            <p class="muted" id="feesInfo" style="margin:10px 0 0;font-size:13px"></p>
+            <button class="btn primary" id="saveFees" style="margin-top:14px">Save shipping fees</button>
+          </form>
         </div>
       </section>
 
@@ -1008,6 +1067,23 @@
     </main>
   </div>
 
+  <!-- order marked Shipped: courier, date, waybill -->
+  <div class="modal-back hidden" id="shipModal">
+    <form class="modal" id="shipForm" style="width:min(420px,100%);text-align:left">
+      <h3 style="text-align:left">Shipping details</h3>
+      <p class="muted" id="shipSub" style="text-align:left;font-size:13px;margin-bottom:6px"></p>
+      <label>Courier *</label>
+      <select name="courier_id" id="shipCourier" required></select>
+      <p class="muted hidden" id="shipNoCouriers" style="text-align:left;font-size:12px;margin-top:4px">No couriers yet — add them under Settings → Courier &amp; Shipping.</p>
+      <label>Shipping date *</label><input name="ship_date" type="date" required />
+      <label>Waybill no.</label><input name="waybill_no" maxlength="60" autocomplete="off" />
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+        <button type="button" class="btn" id="shipCancel">Cancel</button>
+        <button class="btn primary" id="shipSave">Mark as Shipped</button>
+      </div>
+    </form>
+  </div>
+
   <!-- dashboard: day report / 7-day graph -->
   <div class="modal-back hidden" id="dashModal">
     <div class="modal modal-wide">
@@ -1101,7 +1177,7 @@
     // 6.0 colours & sizes: photo + optional price per colour, stock per colour and size · 6.1 size ranges like 3-9
     // 6.2 cost price per colour, R money boxes, selling price optional when every colour has a price
     // 6.3 product list shows price, cost, margin and stock per colour
-    const APP_VERSION = "7.3";
+    const APP_VERSION = "7.4";
     const LOGIN_DOMAIN = "nooknovelty.local";   // hidden login address for usernames (must match manage-users)
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
@@ -1321,8 +1397,8 @@
     // =====================================================
     // SIDEBAR NAVIGATION
     // =====================================================
-    const VIEWS = ["dashboard", "products", "orders", "account", "look", "layout", "business", "email", "categories", "suppliers", "users", "qr", "design-header", "design-invoice"];
-    const ADMIN_VIEWS = ["business", "email", "categories", "suppliers", "users", "qr", "design-header", "design-invoice"];
+    const VIEWS = ["dashboard", "products", "orders", "account", "look", "layout", "business", "email", "categories", "suppliers", "shipping", "users", "qr", "design-header", "design-invoice"];
+    const ADMIN_VIEWS = ["business", "email", "categories", "suppliers", "shipping", "users", "qr", "design-header", "design-invoice"];
     let currentView = "";
     const sectionOf = v => v.startsWith("design-") ? "design" : v;
     function showView(name) {
@@ -1337,6 +1413,7 @@
       if (name === "dashboard") loadDashboard();
       if (name === "orders") loadOrders();
       if (name === "users") loadUsers();
+      if (name === "shipping") { loadCouriers(); fillFees(); }
       if (name === "account") renderAccount();
       if (name === "layout") renderLayoutEditor();
       if (name === "look") renderLook();
@@ -1985,7 +2062,7 @@
       const list = orders.filter(o =>
         (orderTab === "all" || o.status === orderTab) &&
         (!q || o.customer_name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q) ||
-               o.id.slice(0, 8).toLowerCase().includes(q)));
+               o.id.slice(0, 8).toLowerCase().includes(q) || (o.waybill_no || "").toLowerCase().includes(q)));
 
       $("orderRows").innerHTML = list.map(o => `<tr>
         <td style="white-space:nowrap">${new Date(o.created_at).toLocaleString(cfg.LOCALE)}</td>
@@ -1994,7 +2071,8 @@
             ${o.address ? `<div class="muted" style="font-size:12px">${esc(o.address)}</div>` : ""}</td>
         <td style="font-size:13px">${o.items.map(i => `${i.qty} × ${esc(i.name)}`).join("<br>")}</td>
         <td style="white-space:nowrap">${money(o.total)}</td>
-        <td><select data-order="${o.id}">${ORDER_STATUSES.map(s => `<option value="${s}" ${s === o.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`).join("")}</select></td>
+        <td><select data-order="${o.id}">${ORDER_STATUSES.map(s => `<option value="${s}" ${s === o.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`).join("")}</select>
+          ${o.courier_name || o.waybill_no || o.ship_date ? `<button type="button" class="ship-info" data-shipinfo="${o.id}" title="Change shipping details">🚚 ${esc(o.courier_name || "Courier")}${o.ship_date ? " · " + new Date(o.ship_date + "T00:00").toLocaleDateString(cfg.LOCALE, { day: "numeric", month: "short" }) : ""}${o.waybill_no ? `<br>Waybill ${esc(o.waybill_no)}` : ""}</button>` : ""}</td>
         <td style="white-space:nowrap">
           ${o.status === "cancelled" ? "" : `<button class="btn" data-sendinv="${o.id}">${o.invoice_sent_at ? "Resend" : "Send invoice"}</button>`}
           <button class="btn" data-hist="${o.id}" title="Emails sent for this order">History${o.invoice_sent_count ? ` (${o.invoice_sent_count})` : ""}</button>
@@ -2010,7 +2088,7 @@
       if (!confirm(`Delete order ${ref} from ${o.customer_name} (${money(o.total)})?\n\nThis cannot be undone.`)) return;
       const restock = confirm(
         `Put the items from order ${ref} back into stock?\n\n` +
-        o.items.map(i => `  ${i.qty} × ${i.name}`).join("\n") +
+        o.items.filter(i => !i.shipping).map(i => `  ${i.qty} × ${i.name}`).join("\n") +
         `\n\nOK = yes, add them back to stock\nCancel = no, leave stock as it is`);
       const { error } = await db.rpc("delete_order", { p_order_id: id, p_restock: restock });
       if (error) return toast(/function .*delete_order/i.test(error.message) ? "Run update-06 in Supabase first" : error.message);
@@ -2359,6 +2437,132 @@
     }
 
     // =====================================================
+    // COURIER & SHIPPING FEES (admin)
+    // =====================================================
+    let couriers = [];
+    function showShipTab(name) {
+      ["courier", "fees"].forEach(t => $("stab-" + t).classList.toggle("hidden", t !== name));
+      document.querySelectorAll("[data-stab]").forEach(b => b.classList.toggle("active", b.dataset.stab === name));
+    }
+    document.querySelectorAll("[data-stab]").forEach(b => b.onclick = () => showShipTab(b.dataset.stab));
+
+    async function loadCouriers() {
+      const { data, error } = await db.from("couriers").select("*").order("name");
+      if (error) { couriers = []; if (currentView === "shipping") toast(/couriers/.test(error.message) ? "Please run update-19-couriers-shipping.sql in Supabase first" : error.message); }
+      else couriers = data;
+      renderCouriers();
+    }
+    function renderCouriers() {
+      $("courierRows").innerHTML = couriers.map(c => `<tr>
+          <td><strong>${esc(c.name)}</strong></td>
+          <td>${esc(c.contact_person || "")}</td>
+          <td>${c.contact_no ? `<a href="tel:${esc(c.contact_no)}">${esc(c.contact_no)}</a>` : ""}</td>
+          <td>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ""}</td>
+          <td style="white-space:pre-line;font-size:13px">${esc(c.address || "")}</td>
+          <td style="white-space:nowrap"><button class="btn" data-editcourier="${c.id}">Edit</button>
+            <button class="btn danger" data-delcourier="${c.id}">Delete</button></td>
+        </tr>`).join("") || `<tr><td colspan="6" class="muted">No couriers yet — add one above.</td></tr>`;
+    }
+    const cform = $("courierForm");
+    const COURIER_FIELDS = ["name", "address", "contact_no", "contact_person", "email"];
+    function resetCourierForm() {
+      cform.reset(); cform.id.value = "";
+      $("courierFormTitle").textContent = "Add courier"; $("cancelCourier").classList.add("hidden");
+    }
+    $("cancelCourier").onclick = resetCourierForm;
+    cform.onsubmit = async e => {
+      e.preventDefault();
+      const row = {}; COURIER_FIELDS.forEach(f => row[f] = cform[f].value.trim() || null);
+      if (!row.name) return;
+      $("saveCourier").disabled = true;
+      const id = cform.id.value;
+      const { error } = id ? await db.from("couriers").update(row).eq("id", id) : await db.from("couriers").insert(row);
+      $("saveCourier").disabled = false;
+      if (error) return toast(/couriers/.test(error.message) ? "Please run update-19-couriers-shipping.sql in Supabase first" : error.message);
+      toast(id ? "Courier updated" : "Courier added"); resetCourierForm(); loadCouriers();
+    };
+    function editCourier(id) {
+      const c = couriers.find(x => x.id === id); if (!c) return;
+      cform.id.value = c.id; COURIER_FIELDS.forEach(f => cform[f].value = c[f] || "");
+      $("courierFormTitle").textContent = "Edit courier: " + c.name; $("cancelCourier").classList.remove("hidden");
+      cform.scrollIntoView({ behavior: "smooth", block: "start" }); cform.name.focus();
+    }
+    async function deleteCourier(id) {
+      const c = couriers.find(x => x.id === id);
+      if (!confirm(`Delete courier "${c.name}"? Orders already shipped with them keep the courier's name.`)) return;
+      const { error } = await db.from("couriers").delete().eq("id", id);
+      if (error) return toast(error.message);
+      toast("Courier deleted"); loadCouriers();
+    }
+
+    // ----- shipping fees (stored with the business settings, so the shop can show them) -----
+    const fform = $("feesForm");
+    const feeNum = v => v === "" || v == null || isNaN(Number(v)) ? 0 : Number(v);
+    function feesInfo() {
+      const fee = feeNum(fform.shipping_fee.value), free = feeNum(fform.free_shipping_from.value);
+      $("feesInfo").textContent = !fee ? "No shipping fee is charged."
+        : free ? `Customers pay ${money(fee)} shipping, or free shipping on orders of ${money(free)} or more.`
+        : `Customers pay ${money(fee)} shipping on every order.`;
+    }
+    function fillFees() {
+      fform.shipping_fee.value = settings.shipping_fee ? Number(settings.shipping_fee).toFixed(2) : "";
+      fform.free_shipping_from.value = settings.free_shipping_from ? Number(settings.free_shipping_from).toFixed(2) : "";
+      feesInfo();
+    }
+    fform.oninput = feesInfo;
+    fform.onsubmit = async e => {
+      e.preventDefault();
+      $("saveFees").disabled = true;
+      try {
+        const { data, error: rErr } = await db.from("settings").select("data").eq("id", 1).maybeSingle();   // latest, so nothing else is overwritten
+        if (rErr) throw rErr;
+        const next = { ...(data?.data || settings),
+          shipping_fee: feeNum(fform.shipping_fee.value), free_shipping_from: feeNum(fform.free_shipping_from.value) };
+        const { error } = await db.from("settings").update({ data: next, updated_at: new Date().toISOString() }).eq("id", 1);
+        if (error) throw error;
+        settings = next; fillFees();
+        toast("Shipping fees saved");
+      } catch (err) { toast(err.message); }
+      finally { $("saveFees").disabled = false; }
+    };
+
+    // ----- order marked Shipped: ask for courier, date and waybill -----
+    let shipOrderId = null;
+    async function openShipModal(id) {
+      const o = orders.find(x => x.id === id); if (!o) return;
+      if (!couriers.length) await loadCouriers();
+      shipOrderId = id;
+      const f = $("shipForm");
+      $("shipSub").textContent = `Order ${id.slice(0, 8).toUpperCase()} · ${o.customer_name}`;
+      $("shipCourier").innerHTML = `<option value="">Choose a courier…</option>` +
+        couriers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("") +
+        (o.courier_name && !couriers.some(c => c.id === o.courier_id) ? `<option value="__keep">${esc(o.courier_name)}</option>` : "");
+      $("shipNoCouriers").classList.toggle("hidden", couriers.length > 0);
+      f.courier_id.value = o.courier_id && couriers.some(c => c.id === o.courier_id) ? o.courier_id : o.courier_name ? "__keep" : "";
+      f.ship_date.value = o.ship_date || new Date().toLocaleDateString("en-CA");   // yyyy-mm-dd, local
+      f.waybill_no.value = o.waybill_no || "";
+      $("shipSave").textContent = o.status === "shipped" ? "Save" : "Mark as Shipped";
+      $("shipModal").classList.remove("hidden");
+      setTimeout(() => (f.courier_id.value ? f.waybill_no : f.courier_id).focus(), 30);
+    }
+    function closeShipModal() { $("shipModal").classList.add("hidden"); shipOrderId = null; renderOrders(); }
+    $("shipCancel").onclick = closeShipModal;   // the status stays as it was
+    $("shipForm").onsubmit = async e => {
+      e.preventDefault();
+      const f = e.target, o = orders.find(x => x.id === shipOrderId); if (!o) return closeShipModal();
+      const keep = f.courier_id.value === "__keep", c = couriers.find(x => x.id === f.courier_id.value);
+      const upd = { status: "shipped", ship_date: f.ship_date.value, waybill_no: f.waybill_no.value.trim() || null,
+        ...(keep ? {} : { courier_id: c ? c.id : null, courier_name: c ? c.name : null }) };
+      $("shipSave").disabled = true;
+      const { error } = await db.from("orders").update(upd).eq("id", o.id);
+      $("shipSave").disabled = false;
+      if (error) return toast(/courier|ship_date|waybill/.test(error.message) ? "Please run update-19-couriers-shipping.sql in Supabase first" : error.message);
+      toast(o.status === "shipped" ? "Shipping details saved" : "Order marked as Shipped");
+      $("shipModal").classList.add("hidden"); shipOrderId = null;
+      loadOrders();
+    };
+
+    // =====================================================
     // USERS (admin) + MY ACCOUNT + PIN SETUP
     // =====================================================
     // call an edge function as the logged-in user (always sends this user's own login token)
@@ -2593,7 +2797,7 @@
     const saveMyUi = ui => db.rpc("save_my_ui", { p_ui: ui });
     const SB_DEFAULT = [
       { id: "main", label: "", items: ["dashboard", "products", "orders", "account"] },
-      { id: "settings", label: "Settings", items: ["business", "email", "categories", "suppliers", "users", "qr"] },
+      { id: "settings", label: "Settings", items: ["business", "email", "categories", "suppliers", "shipping", "users", "qr"] },
       { id: "design", label: "Custom Design", items: ["design-header", "design-invoice"] },
       { id: "user", label: "User Settings", items: ["look", "layout"] },
     ];
@@ -3760,6 +3964,9 @@
       if (d.up) moveCategory(d.up, -1);
       if (d.down) moveCategory(d.down, 1);
       if (d.delcat) deleteCategory(d.delcat);
+      if (d.editcourier) editCourier(d.editcourier);
+      if (d.delcourier) deleteCourier(d.delcourier);
+      if (d.shipinfo) openShipModal(d.shipinfo);
       if (d.editcat) { setCatForm(categories.find(c => c.id === d.editcat)); const f = $("categoryForm"); f.name.focus(); f.name.select(); f.scrollIntoView({ behavior: "smooth", block: "center" }); }
       if (d.subcat) { if (catEditId) { setCatForm(null); $("categoryForm").name.value = ""; } $("catParentNew").value = d.subcat; const f = $("categoryForm"); f.name.focus(); f.scrollIntoView({ behavior: "smooth", block: "center" }); }
       if (d.editsup) editSupplier(d.editsup);
@@ -3772,6 +3979,7 @@
     });
     document.addEventListener("change", async e => {
       const d = e.target.dataset;
+      if (d.order && e.target.value === "shipped") { openShipModal(d.order); return; }
       if (d.order) {
         const { error } = await db.from("orders").update({ status: e.target.value }).eq("id", d.order);
         toast(error ? error.message : "Order marked as " + STATUS_LABEL[e.target.value]);
