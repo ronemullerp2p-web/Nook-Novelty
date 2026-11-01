@@ -60,6 +60,7 @@
     .pm-actions .btn { padding: 11px 18px; }
     .pm-actions .btn.primary { flex: 1 1 160px; }
     .pm-full { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+    .pm-full div { max-height: none; }
     .pm-full h3 { margin: 0 0 6px; font-size: 15px; }
     .pm-full div { font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.6; }
     @media (max-width: 700px) {
@@ -382,6 +383,17 @@
     }
     function detailHtml(p, o, d) {
       const full = (p.full_description || "").trim();
+      const img = `<div class="pm-img"><img src="${esc(d.img || "")}" alt="${esc(p.name + (d.col ? " – " + d.col.name : ""))}" onerror="this.style.visibility='hidden'" /></div>`;
+      // "Full details" view: the right side shows only the descriptions; ✕ / Back returns to the options
+      if (full && showFull) return img + `
+        <div class="pm-info">
+          <h2 id="pmTitle">${esc(p.name)}</h2>
+          ${p.description ? `<p class="pm-desc">${esc(p.description)}</p>` : ""}
+          <div class="pm-full"><h3>Full details</h3><div>${esc(full)}</div></div>
+          <div class="pm-actions" style="margin-top:6px">
+            <button class="btn" type="button" data-full="1">← Back</button>
+          </div>
+        </div>`;
       return `
         <div class="pm-img"><img src="${esc(d.img || "")}" alt="${esc(p.name + (d.col ? " – " + d.col.name : ""))}" onerror="this.style.visibility='hidden'" /></div>
         <div class="pm-info">
@@ -405,9 +417,8 @@
           </div>
           <div class="pm-actions">
             <button class="btn primary" data-add="${p.id}" ${d.canAdd ? "" : "disabled"}>Add to cart</button>
-            ${full ? `<button class="btn" type="button" data-full="1" aria-expanded="${showFull}">${showFull ? "Hide full details" : "Full details"}</button>` : ""}
+            ${full ? `<button class="btn" type="button" data-full="1">Full details</button>` : ""}
           </div>
-          ${full && showFull ? `<div class="pm-full"><h3>Full details</h3><div>${esc(full)}</div></div>` : ""}
         </div>`;
     }
 
@@ -518,7 +529,7 @@
 
     // ---------- EVENTS ----------
     document.addEventListener("keydown", e => {
-      if (e.key === "Escape" && openPid) closeProduct();
+      if (e.key === "Escape" && openPid) { if (showFull) { showFull = false; renderDetail(); } else closeProduct(); }
       const card = e.target.closest && e.target.closest("[data-open]");
       if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openProduct(card.dataset.open); }
     });
@@ -531,8 +542,10 @@
       const t = e.target.closest("[data-pcol],[data-psize]");
       if (t && t.dataset.pcol) { const [pid, cid] = t.dataset.pcol.split("|"); (sel[pid] = sel[pid] || {}).color = cid; renderDetail(); return; }
       if (t && t.dataset.psize) { const [pid, sz] = t.dataset.psize.split("|"); (sel[pid] = sel[pid] || {}).size = sz; renderDetail(); return; }
-      if (e.target.closest("[data-full]")) { showFull = !showFull; renderDetail(); if (showFull) $("pmodal").querySelector(".pm-full")?.scrollIntoView({ behavior: "smooth", block: "nearest" }); return; }
-      if (e.target.closest(".pm-close") || e.target.id === "pmodal") { closeProduct(); return; }
+      if (e.target.closest("[data-full]")) { showFull = !showFull; renderDetail(); $("pmodal").querySelector(".pm").scrollTop = 0; return; }
+      // ✕ while reading the full details: one step back to the options; otherwise close
+      if (e.target.closest(".pm-close")) { if (showFull) { showFull = false; renderDetail(); } else closeProduct(); return; }
+      if (e.target.id === "pmodal") { closeProduct(); return; }
       const card = e.target.closest("[data-open]");
       if (card) { openProduct(card.dataset.open); return; }
       if (d.add) addToCart(d.add);
