@@ -302,7 +302,10 @@ function createDesignRender() {
 
       let y = top0;
       text(page, r.title || "Report", X, y, 16, bold, ink); y += 22;
-      if (r.subtitle) { text(page, r.subtitle, X, y, 9.5, reg, muted); y += 16; }
+      if (r.subtitle) {   // long subtitles wrap onto more lines
+        for (const ln of wrapLines(safe(r.subtitle), (t) => reg.widthOfTextAtSize(t, 9.5), RW)) { text(page, ln, X, y, 9.5, reg, muted); y += 13; }
+        y += 3;
+      }
       y += 6;
 
       // bar chart

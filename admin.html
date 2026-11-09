@@ -724,6 +724,7 @@
         <div class="tabs" id="repTabs">
           <button class="btn active" data-rtab="sales">Sales</button>
           <button class="btn" data-rtab="stock">Stock</button>
+          <button class="btn" data-rtab="courier">Courier Cost</button>
         </div>
         <form class="panel rep-form" id="repForm">
           <h3 style="margin-top:0" id="repHeading">Sales report</h3>
@@ -1156,6 +1157,8 @@
       <p class="muted hidden" id="shipNoCouriers" style="text-align:left;font-size:12px;margin-top:4px">No couriers yet — add them under Settings → Courier &amp; Shipping.</p>
       <label>Shipping date *</label><input name="ship_date" type="date" required />
       <label>Waybill no.</label><input name="waybill_no" maxlength="60" autocomplete="off" />
+      <label>Courier cost <span style="font-size:12px">(what the courier charged you — optional)</span></label>
+      <div class="money-in"><span>R</span><input name="courier_cost" type="number" step="0.01" min="0" placeholder="0.00" /></div>
       <div class="ship-mail" id="shipMailBox">
         <button type="button" class="btn" id="shipEmail" disabled>✉ Email to customer</button>
         <div class="muted" id="shipMailHint" style="font-size:12px;margin-top:4px">Fill in all 3 fields to email the customer their shipping details.</div>
@@ -1260,7 +1263,7 @@
     // 6.0 colours & sizes: photo + optional price per colour, stock per colour and size · 6.1 size ranges like 3-9
     // 6.2 cost price per colour, R money boxes, selling price optional when every colour has a price
     // 6.3 product list shows price, cost, margin and stock per colour
-    const APP_VERSION = "8.0";
+    const APP_VERSION = "8.1";
     const LOGIN_DOMAIN = "nooknovelty.local";   // hidden login address for usernames (must match manage-users)
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
@@ -2608,10 +2611,11 @@
     function showRepTab(name) {
       repTab = name;
       document.querySelectorAll("[data-rtab]").forEach(b => b.classList.toggle("active", b.dataset.rtab === name));
-      $("repHeading").textContent = name === "sales" ? "Sales report" : "Stock report";
+      $("repHeading").textContent = { sales: "Sales report", stock: "Stock report", courier: "Courier cost report" }[name];
       $("repIntro").textContent = name === "sales"
         ? "Summary: totals, cost and profit, and sales per product. Detail: every order in the period with its items."
-        : "Stock levels are as they are now; the dates set the period for \"Sold\". Summary: per product. Detail: per colour and size.";
+        : name === "stock" ? "Stock levels are as they are now; the dates set the period for \"Sold\". Summary: per product. Detail: per colour and size."
+        : "Parcels by shipping date. Summary: per courier — shipping fees charged vs. what the courier cost you. Detail: every parcel.";
       $("repBasisBox").style.visibility = name === "sales" ? "visible" : "hidden";
     }
     document.querySelectorAll("[data-rtab]").forEach(b => b.onclick = e => { e.preventDefault(); showRepTab(b.dataset.rtab); });
@@ -2762,6 +2766,50 @@
       return spec;
     }
 
+    async function buildCourierSpec(f) {
+      const rows = await fetchAll(() => db.from("orders")
+        .select("id,customer_name,status,total,shipping_fee,courier_name,ship_date,waybill_no,courier_cost")
+        .gte("ship_date", f.start.value).lte("ship_date", f.end.value).neq("status", "cancelled").order("ship_date"));
+      const by = {};
+      let fees = 0, cost = 0, noCost = 0;
+      rows.forEach(o => {
+        const k = o.courier_name || "(no courier)";
+        const r = by[k] = by[k] || { n: 0, fees: 0, cost: 0, costed: 0 };
+        const fee = Number(o.shipping_fee || 0);
+        r.n++; r.fees += fee; fees += fee;
+        if (o.courier_cost != null) { r.cost += Number(o.courier_cost); r.costed++; cost += Number(o.courier_cost); } else noCost++;
+      });
+      const diff = fees - cost;
+      const spec = {
+        title: `Courier cost report — ${fmtD(f.start.value)} to ${fmtD(f.end.value)}`,
+        subtitle: "Parcels by shipping date (cancelled orders left out) · Difference = shipping fees charged minus courier cost"
+          + (noCost ? ` · ${noCost} parcel(s) have no courier cost filled in` : ""),
+        figures: [], sections: [],
+      };
+      if (f.summary.checked) {
+        spec.figures = [["Parcels", String(rows.length)], ["Shipping fees charged", money(fees)], ["Courier cost", money(cost)],
+          [diff >= 0 ? "Shipping profit" : "Shipping loss", money(diff), diff < 0 ? "#b42318" : "#1f6f5c"],
+          ["Average cost / parcel", rows.length - noCost ? money(cost / (rows.length - noCost)) : "—"], ["Without a cost", String(noCost), noCost ? "#b54708" : ""]];
+        spec.sections.push({ heading: "Per courier",
+          columns: [{ label: "Courier", w: 2.4 }, { label: "Parcels", w: .9, align: "right" }, { label: "Fees charged", w: 1.4, align: "right" },
+                    { label: "Courier cost", w: 1.4, align: "right" }, { label: "Difference", w: 1.4, align: "right" }, { label: "Avg cost", w: 1.2, align: "right" }],
+          rows: Object.entries(by).sort((a, b) => b[1].n - a[1].n).map(([k, r]) => [k, String(r.n), money(r.fees), money(r.cost), money(r.fees - r.cost), r.costed ? money(r.cost / r.costed) : "—"]),
+          totals: ["Total", String(rows.length), money(fees), money(cost), money(diff), rows.length - noCost ? money(cost / (rows.length - noCost)) : "—"],
+          empty: "No parcels shipped in this period." });
+      }
+      if (f.detail.checked) {
+        spec.sections.push({ heading: "Parcels", size: 8.5,
+          columns: [{ label: "Ship date", w: 1.1 }, { label: "Order", w: 1.3 }, { label: "Customer", w: 1.8 }, { label: "Courier", w: 1.6 }, { label: "Waybill", w: 1.4 },
+                    { label: "Fee charged", w: 1.2, align: "right" }, { label: "Courier cost", w: 1.2, align: "right" }, { label: "Difference", w: 1.2, align: "right" }],
+          rows: rows.map(o => { const fee = Number(o.shipping_fee || 0), c = o.courier_cost != null ? Number(o.courier_cost) : null;
+            return [new Date(o.ship_date + "T00:00").toLocaleDateString(cfg.LOCALE, { day: "numeric", month: "short" }), "#" + o.id.slice(0, 8).toUpperCase(), o.customer_name, o.courier_name || "—", o.waybill_no || "—",
+              money(fee), c == null ? "—" : money(c), c == null ? "—" : money(fee - c)]; }),
+          totals: [`${rows.length} parcel${rows.length === 1 ? "" : "s"}`, "", "", "", "", money(fees), money(cost), money(diff)],
+          empty: "No parcels shipped in this period." });
+      }
+      return spec;
+    }
+
     // the same report on screen (inside the report window)
     function specHtml(spec) {
       const figs = (spec.figures || []).length ? `<div class="rep-figs">${spec.figures.map(f => `<div class="rep-fig"><div class="l">${esc(f[0])}</div><div class="v" ${f[2] ? `style="color:${f[2]}"` : ""}>${esc(f[1])}</div></div>`).join("")}</div>` : "";
@@ -2780,10 +2828,12 @@
       const btn = $("repRun"), old = btn.textContent; btn.disabled = true; btn.textContent = "Working…";
       try {
         if (!products.length) { const r = await db.from("products").select("*"); if (!r.error) products = r.data; await loadOptions(); }
-        const spec = repTab === "sales" ? await buildSalesSpec(f) : await buildStockSpec(f);
+        const spec = repTab === "sales" ? await buildSalesSpec(f) : repTab === "stock" ? await buildStockSpec(f) : await buildCourierSpec(f);
         openDash(spec.title, spec.subtitle, specHtml(spec), { kind: "custom", spec });
       } catch (err) {
-        toast(/completed_at/.test(err.message) ? "Please run update-16-status-dates.sql in Supabase first (or choose All orders placed)" : err.message);
+        toast(/courier_cost/.test(err.message) ? "Please run update-22-courier-cost.sql in Supabase first"
+          : /ship_date|courier_name/.test(err.message) ? "Please run update-19-couriers-shipping.sql in Supabase first"
+          : /completed_at/.test(err.message) ? "Please run update-16-status-dates.sql in Supabase first (or choose All orders placed)" : err.message);
       } finally { btn.disabled = false; btn.textContent = old; }
     };
 
@@ -2892,6 +2942,7 @@
       f.courier_id.value = o.courier_id && couriers.some(c => c.id === o.courier_id) ? o.courier_id : o.courier_name ? "__keep" : "";
       f.ship_date.value = o.ship_date || new Date().toLocaleDateString("en-CA");   // yyyy-mm-dd, local
       f.waybill_no.value = o.waybill_no || "";
+      f.courier_cost.value = o.courier_cost != null ? Number(o.courier_cost).toFixed(2) : "";
       $("shipSave").textContent = o.status === "shipped" ? "Save" : "Mark as Shipped";
       shipMailCheck();
       $("shipModal").classList.remove("hidden");
@@ -2913,8 +2964,11 @@
       const keep = f.courier_id.value === "__keep", c = couriers.find(x => x.id === f.courier_id.value);
       const upd = { status: "shipped", ship_date: f.ship_date.value, waybill_no: f.waybill_no.value.trim() || null,
         ...(keep ? {} : { courier_id: c ? c.id : null, courier_name: c ? c.name : null }) };
+      if (f.courier_cost.value !== "") upd.courier_cost = Number(f.courier_cost.value);
+      else if (o.courier_cost != null) upd.courier_cost = null;
       const { error } = await db.from("orders").update(upd).eq("id", o.id);
-      if (error) { toast(/courier|ship_date|waybill/.test(error.message) ? "Please run update-19-couriers-shipping.sql in Supabase first" : error.message); return false; }
+      if (error) { toast(/courier_cost/.test(error.message) ? "Please run update-22-courier-cost.sql in Supabase first"
+        : /courier|ship_date|waybill/.test(error.message) ? "Please run update-19-couriers-shipping.sql in Supabase first" : error.message); return false; }
       return true;
     }
     $("shipEmail").onclick = async () => {
