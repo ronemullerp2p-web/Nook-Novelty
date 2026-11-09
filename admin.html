@@ -300,6 +300,19 @@
       padding: 5px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface); cursor: pointer; }
     .disc-colors .dc-item input { width: auto; margin: 0; accent-color: #d92d20; }
     .sale-tag { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; color: #d92d20; }
+    .rep-form { max-width: 860px; }
+    .rep-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .rep-grid > div > label { margin-top: 0; }
+    @media (max-width: 860px) { .rep-grid { grid-template-columns: 1fr 1fr; } }
+    .rep-checks { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .rep-checks label { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 8px 14px; border: 1px solid var(--border);
+      border-radius: 99px; background: var(--surface); cursor: pointer; color: var(--text); font-size: 14px; }
+    .rep-checks input { width: auto; margin: 0; accent-color: var(--accent); }
+    .rep-figs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 16px; }
+    .rep-fig { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 8px 10px; background: var(--bg); text-align: left; }
+    .rep-fig .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .rep-fig .v { font-size: 17px; font-weight: 700; margin-top: 2px; }
+    .rep-sec h4 { margin: 14px 0 6px; text-align: left; font-size: 15px; }
   </style>
 </head>
 <body>
@@ -429,6 +442,10 @@
       <button class="nav" data-view="layout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M13 8h5M13 12h5M13 16h5"/></svg>
         Sidebar Layout
+      </button>
+      <button class="nav" data-view="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 17v-3M12 17v-6M16 17v-4"/></svg>
+        Reports
       </button>
       <div id="sbGroups"></div>
 
@@ -699,6 +716,44 @@
             </table>
           </div>
         </div>
+      </section>
+
+      <!-- ================= REPORTS ================= -->
+      <section id="view-reports" class="hidden">
+        <h2>Reports</h2>
+        <div class="tabs" id="repTabs">
+          <button class="btn active" data-rtab="sales">Sales</button>
+          <button class="btn" data-rtab="stock">Stock</button>
+        </div>
+        <form class="panel rep-form" id="repForm">
+          <h3 style="margin-top:0" id="repHeading">Sales report</h3>
+          <p class="muted" id="repIntro" style="margin:-4px 0 10px;font-size:13px"></p>
+          <div class="rep-grid">
+            <div><label>Quick dates</label>
+              <select id="repQuick">
+                <option value="">Choose…</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="week">This week</option>
+                <option value="month">This month</option>
+                <option value="lastmonth">Last month</option>
+                <option value="year">This year</option>
+              </select></div>
+            <div><label>Start date</label><input type="date" name="start" required /></div>
+            <div><label>End date</label><input type="date" name="end" required /></div>
+            <div id="repBasisBox"><label>Orders</label>
+              <select name="basis">
+                <option value="completed" title="By the date they were completed">Completed orders</option>
+                <option value="all" title="By order date, cancelled orders left out">All orders placed</option>
+              </select></div>
+          </div>
+          <div class="rep-checks">
+            <label><input type="checkbox" name="summary" checked /> Summary</label>
+            <label><input type="checkbox" name="detail" /> Detail</label>
+          </div>
+          <button class="btn primary" id="repRun" style="margin-top:14px">Show report</button>
+          <p class="muted" style="font-size:12px;margin:10px 0 0">The report opens with your Business Header, ready to print, email or save as PDF.</p>
+        </form>
       </section>
 
       <!-- ================= COURIER & SHIPPING ================= -->
@@ -1205,7 +1260,7 @@
     // 6.0 colours & sizes: photo + optional price per colour, stock per colour and size · 6.1 size ranges like 3-9
     // 6.2 cost price per colour, R money boxes, selling price optional when every colour has a price
     // 6.3 product list shows price, cost, margin and stock per colour
-    const APP_VERSION = "7.9";
+    const APP_VERSION = "8.0";
     const LOGIN_DOMAIN = "nooknovelty.local";   // hidden login address for usernames (must match manage-users)
     document.querySelectorAll(".app-version").forEach(el => el.textContent = "Version " + APP_VERSION);
 
@@ -1425,7 +1480,7 @@
     // =====================================================
     // SIDEBAR NAVIGATION
     // =====================================================
-    const VIEWS = ["dashboard", "products", "orders", "account", "look", "layout", "business", "email", "categories", "suppliers", "shipping", "users", "qr", "design-header", "design-invoice"];
+    const VIEWS = ["dashboard", "products", "orders", "reports", "account", "look", "layout", "business", "email", "categories", "suppliers", "shipping", "users", "qr", "design-header", "design-invoice"];
     const ADMIN_VIEWS = ["business", "email", "categories", "suppliers", "shipping", "users", "qr", "design-header", "design-invoice"];
     let currentView = "";
     const sectionOf = v => v.startsWith("design-") ? "design" : v;
@@ -1445,6 +1500,7 @@
       if (name === "account") renderAccount();
       if (name === "layout") renderLayoutEditor();
       if (name === "look") renderLook();
+      if (name === "reports") initReports();
       else if (me) applyLook(me.ui);   // leaving Colours without saving: back to the saved look
       if (name !== "layout" && layDraft && me) { layDraft = null; applyLayout(me.ui && me.ui.layout); }   // same for the layout
       if (name === "email") loadEmailSettings();
@@ -1606,6 +1662,7 @@
       return { header: m.header || DR.defaultHeader(), invoice: m.invoice || DR.defaultInvoice() };
     }
     function reportSpec(w) {
+      if (w.kind === "custom") return w.spec;   // Reports page
       const name = w.card.title.replace(/ for the day| today/i, "");
       const M = DR.money;
       if (w.kind === "day") {
@@ -2534,6 +2591,203 @@
     }
 
     // =====================================================
+    // REPORTS: Sales and Stock, with start/end date, Summary and/or Detail
+    // =====================================================
+    let repTab = "sales";
+    const ymd = d => d.toLocaleDateString("en-CA");   // yyyy-mm-dd, local
+    const fmtD = s => new Date(s + "T00:00").toLocaleDateString(cfg.LOCALE, { day: "numeric", month: "short", year: "numeric" });
+    function setRepRange(kind) {
+      const f = $("repForm"), t = new Date(); let a = new Date(t), b = new Date(t);
+      if (kind === "yesterday") { a.setDate(t.getDate() - 1); b = new Date(a); }
+      else if (kind === "week") { a.setDate(t.getDate() - ((t.getDay() + 6) % 7)); }   // Monday
+      else if (kind === "month") a = new Date(t.getFullYear(), t.getMonth(), 1);
+      else if (kind === "lastmonth") { a = new Date(t.getFullYear(), t.getMonth() - 1, 1); b = new Date(t.getFullYear(), t.getMonth(), 0); }
+      else if (kind === "year") a = new Date(t.getFullYear(), 0, 1);
+      f.start.value = ymd(a); f.end.value = ymd(b);
+    }
+    function showRepTab(name) {
+      repTab = name;
+      document.querySelectorAll("[data-rtab]").forEach(b => b.classList.toggle("active", b.dataset.rtab === name));
+      $("repHeading").textContent = name === "sales" ? "Sales report" : "Stock report";
+      $("repIntro").textContent = name === "sales"
+        ? "Summary: totals, cost and profit, and sales per product. Detail: every order in the period with its items."
+        : "Stock levels are as they are now; the dates set the period for \"Sold\". Summary: per product. Detail: per colour and size.";
+      $("repBasisBox").style.visibility = name === "sales" ? "visible" : "hidden";
+    }
+    document.querySelectorAll("[data-rtab]").forEach(b => b.onclick = e => { e.preventDefault(); showRepTab(b.dataset.rtab); });
+    $("repQuick").onchange = e => { if (e.target.value) setRepRange(e.target.value); e.target.value = ""; };
+    function initReports() {
+      const f = $("repForm");
+      if (!f.start.value) setRepRange("month");
+      showRepTab(repTab);
+    }
+
+    async function fetchAll(build) {   // more than 1000 rows: fetch page by page
+      let out = [], from = 0;
+      for (;;) {
+        const { data, error } = await build().range(from, from + 999);
+        if (error) throw error;
+        out = out.concat(data);
+        if (data.length < 1000 || out.length >= 20000) return out;
+        from += 1000;
+      }
+    }
+    const isoStart = d => new Date(d + "T00:00").toISOString();
+    const isoAfter = d => { const x = new Date(d + "T00:00"); x.setDate(x.getDate() + 1); return x.toISOString(); };
+    // unit cost of an order line: the colour's own cost, else the product's (today's cost prices)
+    function lineCost(it) {
+      if (it.shipping) return 0;
+      const v = it.variant_id && productVariants.find(x => x.id === it.variant_id);
+      const c = v && v.color_id && productColors.find(x => x.id === v.color_id);
+      const p = products.find(x => x.id === it.product_id);
+      const u = c && c.cost_price != null ? Number(c.cost_price) : p && p.cost_price != null ? Number(p.cost_price) : null;
+      return u == null ? null : u * Number(it.qty || 0);
+    }
+    const pct = (a, b) => b ? (a / b * 100).toFixed(1) + "%" : "—";
+    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+
+    async function buildSalesSpec(f) {
+      const field = f.basis.value === "completed" ? "completed_at" : "created_at";
+      const orders = await fetchAll(() => {
+        let q = db.from("orders").select("id,customer_name,email,status,items,total,shipping_fee,created_at,completed_at")
+          .gte(field, isoStart(f.start.value)).lt(field, isoAfter(f.end.value)).order(field);
+        return f.basis.value === "completed" ? q.eq("status", "completed") : q.neq("status", "cancelled");
+      });
+      let goods = 0, ship = 0, qty = 0, cost = 0, costMissing = false;
+      const byProd = {};
+      orders.forEach(o => (Array.isArray(o.items) ? o.items : []).forEach(it => {
+        const amt = Number(it.price || 0) * Number(it.qty || 0);
+        if (it.shipping) { ship += amt; return; }
+        goods += amt; qty += Number(it.qty || 0);
+        const c = lineCost(it); if (c == null) costMissing = true; else cost += c;
+        const key = it.product_id || it.name, p = products.find(x => x.id === it.product_id);
+        const r = byProd[key] = byProd[key] || { name: p ? p.name : String(it.name || "").replace(/ \(.*% off\)$/, ""), qty: 0, sales: 0, cost: 0, noCost: false };
+        r.qty += Number(it.qty || 0); r.sales += amt;
+        if (c == null) r.noCost = true; else r.cost += c;
+      }));
+      const total = orders.reduce((t, o) => t + Number(o.total || 0), 0);
+      const profit = goods - cost;
+      const spec = {
+        title: `Sales report — ${fmtD(f.start.value)} to ${fmtD(f.end.value)}`,
+        subtitle: (f.basis.value === "completed" ? "Completed orders, by the date they were completed" : "All orders placed (cancelled orders left out), by order date")
+          + (costMissing ? " · some items have no cost price, so cost and profit are understated" : ""),
+        figures: [], sections: [],
+      };
+      if (f.summary.checked) {
+        spec.figures = [["Orders", String(orders.length)], ["Items sold", String(qty)], ["Sales (excl. shipping)", money(goods)], ["Shipping", money(ship)],
+          ["Total received", money(total)], ["Cost of goods", money(cost)], ["Gross profit", money(profit), profit < 0 ? "#b42318" : "#1f6f5c"], ["Margin", pct(profit, goods)]];
+        const rows = Object.values(byProd).sort((a, b) => b.sales - a.sales);
+        spec.sections.push({ heading: "Sales per product",
+          columns: [{ label: "Product", w: 3 }, { label: "Qty", w: .7, align: "right" }, { label: "Sales", w: 1.3, align: "right" },
+                    { label: "Cost", w: 1.3, align: "right" }, { label: "Profit", w: 1.3, align: "right" }, { label: "Margin", w: .9, align: "right" }],
+          rows: rows.map(r => [r.name, String(r.qty), money(r.sales), r.noCost ? "—" : money(r.cost), r.noCost ? "—" : money(r.sales - r.cost), r.noCost ? "—" : pct(r.sales - r.cost, r.sales)]),
+          totals: ["Total", String(qty), money(goods), money(cost), money(profit), pct(profit, goods)],
+          empty: "No sales in this period." });
+      }
+      if (f.detail.checked) {
+        spec.sections.push({ heading: "Orders", size: 8.5,
+          columns: [{ label: "Date", w: 1 }, { label: "Order", w: 1.35 }, { label: "Customer", w: 1.8 }, { label: "Items", w: 2.8 },
+                    { label: "Status", w: 1.1 }, { label: "Shipping", w: 1, align: "right" }, { label: "Total", w: 1.2, align: "right" }],
+          rows: orders.map(o => [new Date(o[field]).toLocaleDateString(cfg.LOCALE, { day: "numeric", month: "short" }) + "\n" + new Date(o[field]).toLocaleTimeString(cfg.LOCALE, { hour: "2-digit", minute: "2-digit" }),
+            "#" + o.id.slice(0, 8).toUpperCase(), o.customer_name + (o.email ? "\n" + o.email : ""),
+            (o.items || []).filter(i => !i.shipping).map(i => `${i.qty} x ${i.name}`).join("\n"), cap(o.status),
+            money((o.items || []).filter(i => i.shipping).reduce((t, i) => t + Number(i.price || 0), 0)), money(o.total)]),
+          totals: [`${orders.length} order${orders.length === 1 ? "" : "s"}`, "", "", `${qty} item${qty === 1 ? "" : "s"}`, "", money(ship), money(total)],
+          empty: "No orders in this period." });
+      }
+      return spec;
+    }
+
+    async function buildStockSpec(f) {
+      if (!suppliers.length) { const r = await db.from("suppliers").select("*").order("name"); if (!r.error) suppliers = r.data; }
+      const orders = await fetchAll(() => db.from("orders").select("items,status,created_at")
+        .gte("created_at", isoStart(f.start.value)).lt("created_at", isoAfter(f.end.value)).neq("status", "cancelled"));
+      const soldP = {}, soldV = {};
+      orders.forEach(o => (o.items || []).forEach(it => {
+        if (it.shipping || !it.product_id) return;
+        soldP[it.product_id] = (soldP[it.product_id] || 0) + Number(it.qty || 0);
+        if (it.variant_id) soldV[it.variant_id] = (soldV[it.variant_id] || 0) + Number(it.qty || 0);
+      }));
+      const supName = id => (suppliers.find(x => x.id === id) || {}).name || "";
+      const list = [...products].sort((a, b) => a.name.localeCompare(b.name));
+      let units = 0, costV = 0, sellV = 0, sold = 0, out = 0, low = 0, noCost = 0;
+      const prodRows = [], detRows = [];
+      list.forEach(p => {
+        const vs = productVariants.filter(v => v.product_id === p.id);
+        let pc = 0, ps = 0, missing = false;
+        const unit = (cid, field) => { const c = cid && productColors.find(x => x.id === cid); return c && c[field] != null ? Number(c[field]) : p[field] != null ? Number(p[field]) : null; };
+        if (vs.length) {
+          vs.sort((a, b) => { const ca = productColors.find(x => x.id === a.color_id), cb = productColors.find(x => x.id === b.color_id);
+            return ((ca && ca.sort_order) || 0) - ((cb && cb.sort_order) || 0) || String(a.size || "").localeCompare(String(b.size || ""), undefined, { numeric: true }); });
+          vs.forEach(v => {
+            const uc = unit(v.color_id, "cost_price"), us = unit(v.color_id, "price") ?? Number(p.price);
+            if (uc == null) missing = true; else pc += uc * v.stock;
+            ps += us * v.stock;
+            const cn = (productColors.find(x => x.id === v.color_id) || {}).name || "";
+            detRows.push([p.name, cn || "—", v.size || "—", String(v.stock), String(soldV[v.id] || 0), uc == null ? "—" : money(uc), uc == null ? "—" : money(uc * v.stock)]);
+          });
+        } else {
+          const uc = p.cost_price != null ? Number(p.cost_price) : null;
+          if (uc == null) missing = true; else pc += uc * (p.stock || 0);
+          ps += Number(p.price || 0) * (p.stock || 0);
+          detRows.push([p.name, "—", "—", String(p.stock || 0), String(soldP[p.id] || 0), uc == null ? "—" : money(uc), uc == null ? "—" : money(uc * (p.stock || 0))]);
+        }
+        units += p.stock || 0; costV += pc; sellV += ps; sold += soldP[p.id] || 0;
+        if (p.active && !p.stock) out++;
+        else if (p.active && p.stock <= (p.min_stock ?? 5)) low++;
+        if (missing) noCost++;
+        prodRows.push([p.name + (p.active ? "" : " (hidden)"), (catPath(p.category_id) || "—").replace(/ › /g, " > "), supName(p.supplier_id) || "—", String(p.stock || 0),
+          String(soldP[p.id] || 0), missing && !pc ? "—" : money(pc), money(ps)]);
+      });
+      const spec = {
+        title: `Stock report — ${fmtD(f.start.value)} to ${fmtD(f.end.value)}`,
+        subtitle: `Stock on hand as at ${new Date().toLocaleString(cfg.LOCALE, { dateStyle: "medium", timeStyle: "short" })} · "Sold" = orders placed in the period (not cancelled)`
+          + (noCost ? ` · ${noCost} product(s) without a cost price` : ""),
+        figures: [], sections: [],
+      };
+      if (f.summary.checked) {
+        spec.figures = [["Products", String(list.length)], ["Items in stock", String(units)], ["Stock value (cost)", money(costV)], ["Stock value (selling)", money(sellV)],
+          ["Sold in period", String(sold)], ["Low stock", String(low), low ? "#b54708" : ""], ["Sold out", String(out), out ? "#b42318" : ""], ["Potential profit", money(sellV - costV)]];
+        spec.sections.push({ heading: "Stock per product", size: 8.5,
+          columns: [{ label: "Product", w: 2.6 }, { label: "Category", w: 2 }, { label: "Supplier", w: 1.4 }, { label: "In stock", w: .9, align: "right" },
+                    { label: "Sold", w: .7, align: "right" }, { label: "Cost value", w: 1.3, align: "right" }, { label: "Selling value", w: 1.3, align: "right" }],
+          rows: prodRows, totals: ["Total", "", "", String(units), String(sold), money(costV), money(sellV)], empty: "No products yet." });
+      }
+      if (f.detail.checked) {
+        spec.sections.push({ heading: "Stock per colour & size", size: 8.5,
+          columns: [{ label: "Product", w: 2.6 }, { label: "Colour", w: 1.6 }, { label: "Size", w: .7 }, { label: "In stock", w: .9, align: "right" },
+                    { label: "Sold", w: .7, align: "right" }, { label: "Unit cost", w: 1.1, align: "right" }, { label: "Cost value", w: 1.3, align: "right" }],
+          rows: detRows, totals: ["Total", "", "", String(units), String(sold), "", money(costV)], empty: "No products yet." });
+      }
+      return spec;
+    }
+
+    // the same report on screen (inside the report window)
+    function specHtml(spec) {
+      const figs = (spec.figures || []).length ? `<div class="rep-figs">${spec.figures.map(f => `<div class="rep-fig"><div class="l">${esc(f[0])}</div><div class="v" ${f[2] ? `style="color:${f[2]}"` : ""}>${esc(f[1])}</div></div>`).join("")}</div>` : "";
+      const cell = (v, c) => `<td style="${c.align === "right" ? "text-align:right;white-space:nowrap;" : ""}">${esc(v).replace(/\n/g, "<br>")}</td>`;
+      return figs + (spec.sections || []).map(sec => `<div class="rep-sec"><h4>${esc(sec.heading || "")}</h4><div class="table-wrap"><table class="rep-table">
+        <thead><tr>${sec.columns.map(c => `<th style="${c.align === "right" ? "text-align:right" : ""}">${esc(c.label)}</th>`).join("")}</tr></thead>
+        <tbody>${sec.rows.length ? sec.rows.map(r => `<tr>${r.map((v, i) => cell(v, sec.columns[i])).join("")}</tr>`).join("") : `<tr><td colspan="${sec.columns.length}" class="muted">${esc(sec.empty || "")}</td></tr>`}</tbody>
+        ${sec.totals && sec.rows.length ? `<tfoot><tr>${sec.totals.map((v, i) => cell(v, sec.columns[i])).join("")}</tr></tfoot>` : ""}
+      </table></div></div>`).join("");
+    }
+    $("repForm").onsubmit = async e => {
+      e.preventDefault();
+      const f = e.target;
+      if (!f.summary.checked && !f.detail.checked) return toast("Tick Summary, Detail or both");
+      if (f.end.value < f.start.value) return toast("The end date must be on or after the start date");
+      const btn = $("repRun"), old = btn.textContent; btn.disabled = true; btn.textContent = "Working…";
+      try {
+        if (!products.length) { const r = await db.from("products").select("*"); if (!r.error) products = r.data; await loadOptions(); }
+        const spec = repTab === "sales" ? await buildSalesSpec(f) : await buildStockSpec(f);
+        openDash(spec.title, spec.subtitle, specHtml(spec), { kind: "custom", spec });
+      } catch (err) {
+        toast(/completed_at/.test(err.message) ? "Please run update-16-status-dates.sql in Supabase first (or choose All orders placed)" : err.message);
+      } finally { btn.disabled = false; btn.textContent = old; }
+    };
+
+    // =====================================================
     // COURIER & SHIPPING FEES (admin)
     // =====================================================
     let couriers = [];
@@ -2932,6 +3186,7 @@
     const saveMyUi = ui => db.rpc("save_my_ui", { p_ui: ui });
     const SB_DEFAULT = [
       { id: "main", label: "", items: ["dashboard", "products", "orders", "account"] },
+      { id: "reports", label: "Reports", items: ["reports"] },
       { id: "settings", label: "Settings", items: ["business", "email", "categories", "suppliers", "shipping", "users", "qr"] },
       { id: "design", label: "Custom Design", items: ["design-header", "design-invoice"] },
       { id: "user", label: "User Settings", items: ["look", "layout"] },

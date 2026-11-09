@@ -325,13 +325,33 @@ function createDesignRender() {
       }
       if (r.summary) { text(page, r.summary, X, y, 10, bold, ink); y += 22; }
 
-      // table
-      const cols = r.columns || [];
-      if (cols.length) {
+      // key figures: small boxes with a label and a big value, 4 per row
+      if (r.figures && r.figures.length) {
+        const per = 4, gap = 8, bw = (RW - gap * (per - 1)) / per, bh = 44;
+        for (let k = 0; k < r.figures.length; k += per) {
+          if (y + bh > limit) { page = await newPage(); y = top0; }
+          r.figures.slice(k, k + per).forEach((f, i) => {
+            const bx = X + i * (bw + gap);
+            page.drawRectangle({ x: bx, y: H - (y + bh), width: bw, height: bh, color: col("#f6f6f4"), borderColor: col(lineCol), borderWidth: 0.6 });
+            page.drawRectangle({ x: bx, y: H - (y + bh), width: 3, height: bh, color: col(accent) });
+            text(page, String(f[0] || "").toUpperCase(), bx + 10, y + 8, 7, bold, muted);
+            const v = safe(String(f[1] ?? "")), vs = reg.widthOfTextAtSize(v, 12.5) > bw - 16 ? 10 : 12.5;
+            text(page, v, bx + 10, y + 21, vs, bold, f[2] ? col(f[2]) : ink);
+          });
+          y += bh + gap;
+        }
+        y += 8;
+      }
+
+      // tables: r.sections = [{ heading, columns, rows, totals, empty }] (or one table straight on r)
+      const sections = r.sections || (r.columns ? [{ columns: r.columns, rows: r.rows, totals: r.totals, empty: r.empty }] : []);
+      for (const sec of sections) {
+        const cols = sec.columns || [];
+        if (!cols.length) continue;
         const share = cols.reduce((t, c) => t + (c.w || 1), 0);
         const widths = cols.map((c) => RW * (c.w || 1) / share);
         const xs = widths.map((_, i) => X + widths.slice(0, i).reduce((t, w) => t + w, 0));
-        const size = 9, lh = size * 1.3, pad = 5, hh = 22;
+        const size = sec.size || 9, lh = size * 1.3, pad = 5, hh = 22;
         const cellLines = (s, i, f) => wrapLines(safe(s), (t) => f.widthOfTextAtSize(t, size), widths[i] - pad * 2);
         const drawRow = (cells, f, top, h, color) => cells.forEach((cell, i) => {
           cellLines(cell, i, f).forEach((ln, k) => {
@@ -349,10 +369,11 @@ function createDesignRender() {
           });
           y += hh;
         };
-        if (y + hh + 30 > limit) { page = await newPage(); y = top0; }
+        if (y + (sec.heading ? 22 : 0) + hh + 30 > limit) { page = await newPage(); y = top0; }
+        if (sec.heading) { text(page, sec.heading, X, y + 2, 12, bold, ink); y += 22; }
         head();
-        const rows = r.rows || [];
-        if (!rows.length) { text(page, r.empty || "Nothing for this day.", X + pad, y + 8, 9.5, reg, muted); y += 28; }
+        const rows = sec.rows || [];
+        if (!rows.length) { text(page, sec.empty || "Nothing for this day.", X + pad, y + 8, 9.5, reg, muted); y += 28; }
         for (let n = 0; n < rows.length; n++) {
           const h = Math.max(...rows[n].map((c, i) => cellLines(c, i, reg).length)) * lh + pad * 2 - 2;
           if (y + h > limit) { page = await newPage(); y = top0; head(); }
@@ -361,13 +382,14 @@ function createDesignRender() {
           page.drawLine({ start: { x: X, y: H - (y + h) }, end: { x: X + RW, y: H - (y + h) }, thickness: 0.5, color: col(lineCol) });
           y += h;
         }
-        if (r.totals && rows.length) {
-          const h = Math.max(...r.totals.map((c, i) => cellLines(c, i, bold).length)) * lh + pad * 2;
+        if (sec.totals && rows.length) {
+          const h = Math.max(...sec.totals.map((c, i) => cellLines(c, i, bold).length)) * lh + pad * 2;
           if (y + h > limit) { page = await newPage(); y = top0; head(); }
-          drawRow(r.totals, bold, y, h, ink);
+          drawRow(sec.totals, bold, y, h, ink);
           page.drawLine({ start: { x: X, y: H - (y + h) }, end: { x: X + RW, y: H - (y + h) }, thickness: 1, color: col(accent) });
           y += h;
         }
+        y += 18;
       }
       // footer on every page
       const printed = "Printed " + longDate(new Date());
