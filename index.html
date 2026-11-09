@@ -31,6 +31,80 @@
     .shop-content { grid-column: 2; min-width: 0; }
     .shop-content > .toolbar:first-child { margin-top: 0; }   /* top of search = top of logo */
     .shop-version { text-align: center; font-size: 11px; color: var(--muted); padding: 6px 0 14px; }
+    /* header buttons: track order, wishlist, account */
+    .hacts { display: flex; align-items: center; gap: 6px; flex: none; }
+    .hbtn { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); font: inherit; font-size: 14px; padding: 8px 11px; border-radius: 10px; cursor: pointer; }
+    .hbtn svg { width: 18px; height: 18px; flex: none; }
+    .hbtn:hover { border-color: var(--accent); color: var(--accent); }
+    .hbtn .hcount { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px;
+      background: #d92d20; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+    #wishBtn svg { color: #d92d20; }
+    @media (max-width: 760px) {
+      .hbtn span { display: none; }
+      .hbtn { padding: 8px; }
+      .hacts { gap: 5px; }
+      header.top h1 { font-size: 16px; }
+    }
+    /* account / track-order window */
+    .acc-back { position: fixed; inset: 0; z-index: 35; background: rgba(16,24,40,.5); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 16px; overflow-y: auto; }
+    .acc { position: relative; width: min(560px, 100%); background: var(--surface); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3); padding: 24px 22px 22px; }
+    .acc-close { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 15px; color: var(--text); }
+    .acc h2 { margin: 0 40px 4px 0; font-size: 21px; }
+    .acc .lead { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+    .acc form label { margin-top: 10px; }
+    .acc .btn.primary.wide { width: 100%; margin-top: 16px; padding: 11px; }
+    .acc .links { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: 14px; }
+    .acc .links a, .linkbtn { color: var(--accent); cursor: pointer; text-decoration: underline; background: none; border: 0; font: inherit; padding: 0; }
+    .acc .note { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+      border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
+    .acc .err { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 1em; }
+    .acc-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 6px 0 14px; overflow-x: auto; }
+    .acc-tabs button { border: 0; background: none; font: inherit; font-size: 14px; padding: 9px 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+    .acc-tabs button.on { color: var(--text); font-weight: 700; border-bottom-color: var(--accent); }
+    .ord { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .ord-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .ord-top .ref { font-weight: 700; }
+    .ord-top .dt { font-size: 12px; color: var(--muted); }
+    .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 99px; background: var(--bg); border: 1px solid var(--border); white-space: nowrap; }
+    .pill.cancelled { background: #fef3f2; color: #b42318; border-color: #fecdca; }
+    .pill.completed, .pill.shipped { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+    .steps { display: flex; margin: 14px 0 6px; }
+    .steps .st { flex: 1; text-align: center; position: relative; font-size: 11px; color: var(--muted); }
+    .steps .st::before { content: ""; position: absolute; top: 7px; left: -50%; width: 100%; height: 2px; background: var(--border); z-index: 0; }
+    .steps .st:first-child::before { display: none; }
+    .steps .st i { position: relative; z-index: 1; display: block; width: 16px; height: 16px; border-radius: 50%; margin: 0 auto 4px; background: var(--surface); border: 2px solid var(--border); }
+    .steps .st.done { color: var(--text); font-weight: 600; }
+    .steps .st.done i { background: var(--accent); border-color: var(--accent); }
+    .steps .st.done::before { background: var(--accent); }
+    .ship-box { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-top: 10px; }
+    .ship-box b { font-family: ui-monospace, Menlo, monospace; letter-spacing: .03em; }
+    .ord-items { font-size: 13px; margin-top: 10px; color: var(--muted); }
+    .ord-total { display: flex; justify-content: space-between; margin-top: 8px; font-weight: 700; }
+    .wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+    .wish-item { position: relative; text-align: center; cursor: pointer; }
+    .wish-item .ph { aspect-ratio: 1/1; border-radius: 22%; overflow: hidden; background: var(--border); }
+    .wish-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .wish-item .nm { font-size: 13px; margin-top: 6px; }
+    .wish-item .pr { font-size: 13px; font-weight: 600; }
+    .co-acc { font-size: 13px; margin: -4px 0 6px; color: var(--muted); }
+    /* heart on cards and in the product window */
+    .heart { width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(255,255,255,.92); box-shadow: 0 1px 4px rgba(0,0,0,.15);
+      display: grid; place-items: center; cursor: pointer; color: #6b6b70; padding: 0; }
+    .heart svg { width: 18px; height: 18px; }
+    .heart.on { color: #d92d20; }
+    .heart.on svg { fill: currentColor; }
+    .pcard .heart { position: absolute; bottom: 10px; right: 10px; }
+    .pm-info .heart { position: absolute; top: 14px; right: 58px; box-shadow: none; border: 1px solid var(--border); }
+    /* notify me when back in stock */
+    .notify { border: 1px dashed var(--border); border-radius: 12px; padding: 12px; background: var(--bg); }
+    .notify .t { font-weight: 700; font-size: 14px; }
+    .notify .s { font-size: 13px; color: var(--muted); margin: 2px 0 8px; }
+    .notify form { display: flex; gap: 6px; }
+    .notify input { flex: 1; min-width: 0; }
+    .notify .ok { color: var(--accent); font-weight: 600; font-size: 14px; }
+    .pm-size.out { opacity: .5; text-decoration: line-through; }
+    .pm-size.out.on { opacity: 1; text-decoration: line-through; background: #9a9aa0; border-color: #9a9aa0; }
     /* product cards: click to open the product window */
     .pcard { cursor: pointer; transition: box-shadow .15s, transform .15s; }
     .pcard:hover, .pcard:focus-visible { box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 10px 28px rgba(0,0,0,.1); transform: translateY(-2px); outline: none; }
@@ -54,8 +128,8 @@
     .pm-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     .pm-img { position: relative; background: var(--border); min-height: 440px; border-radius: 16px 0 0 16px; overflow: hidden; }
     .pm-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pm-info { padding: 26px 24px 22px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-    .pm-info h2 { margin: 0; font-size: 22px; padding-right: 36px; }
+    .pm-info { position: relative; padding: 26px 24px 22px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .pm-info h2 { margin: 0; font-size: 22px; padding-right: 84px; }
     .pm-desc { margin: 0; color: var(--muted); font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; }
     .pm-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
     .pm-label strong { color: var(--text); }
@@ -198,7 +272,15 @@
         <div class="tagline hidden" id="tagline"></div>
       </div>
     </div>
-    <button class="btn primary" id="cartBtn" style="flex:none">Cart (<span id="cartCount">0</span>)</button>
+    <div class="hacts">
+      <button class="hbtn" id="trackBtn" type="button" title="Track my order">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="7" width="14" height="10" rx="1"/><path d="M15 10h4l3 3v4h-7"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Track order</span></button>
+      <button class="hbtn" id="wishBtn" type="button" title="My wishlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 000-7.8z"/></svg><b class="hcount hidden" id="wishCount">0</b></button>
+      <button class="hbtn" id="accBtn" type="button" title="My account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span id="accLabel">Sign in</span></button>
+      <button class="btn primary" id="cartBtn" style="flex:none">Cart (<span id="cartCount">0</span>)</button>
+    </div>
   </header>
 
   <main class="shop-layout">
@@ -228,6 +310,12 @@
   <div class="shop-version" id="shopVersion"></div>
 
   <div class="overlay" id="overlay"></div>
+  <div class="acc-back hidden" id="accModal" role="dialog" aria-modal="true" aria-labelledby="accTitle">
+    <div class="acc">
+      <button class="acc-close" type="button" aria-label="Close">✕</button>
+      <div id="accBody"></div>
+    </div>
+  </div>
   <div class="pm-back hidden" id="pmodal" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
     <div class="pm">
       <button class="pm-close" type="button" aria-label="Close">✕</button>
@@ -241,6 +329,7 @@
         <div id="cartLines"></div>
         <form id="checkout" class="hidden">
           <h3>Checkout</h3>
+          <div class="co-acc" id="coAcc"></div>
           <label>Full name *</label><input name="name" required />
           <label>Email *</label><input name="email" type="email" required />
           <label>Phone</label><input name="phone" type="tel" />
@@ -267,7 +356,12 @@
   <script src="config.js"></script>
   <script>
     const cfg = window.SHOP_CONFIG;
-    const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    // two connections: "db" is the anonymous shop (products, prices — never logged in);
+    // "acct" is the customer's own account (sign in, orders, wishlist). Kept apart from the admin's login.
+    const db = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY,
+      { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "nn-shop-anon" } });
+    const acct = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY,
+      { auth: { storageKey: "nn-shop-customer", detectSessionInUrl: true } });
     const money = n => new Intl.NumberFormat(cfg.LOCALE, { style: "currency", currency: cfg.CURRENCY }).format(n);
     const $ = id => document.getElementById(id);
     const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -555,6 +649,7 @@
       return `
         <div class="card pcard" data-open="${p.id}" tabindex="0" role="button" aria-label="${esc(p.name)} — view details">
           <div class="pimg"><img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.visibility='hidden'" />
+            <button type="button" class="heart ${wish.has(p.id) ? "on" : ""}" data-wish="${p.id}" title="Save to wishlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 000-7.8z"/></svg></button>
             ${total > 0 ? "" : `<span class="soldout">Sold out</span>`}${anySale(p) && total > 0 ? `<span class="soldout sale-badge">-${Number(p.discount_pct)}%</span>` : ""}</div>
           <div class="body">
             <h3>${esc(p.name)}</h3>
@@ -586,18 +681,24 @@
       const o = optionsOf(p);
       let html;
       if (!o.has) {
-        html = detailHtml(p, o, { img: p.image_url, price: p.price, stockText: p.stock > 0 ? p.stock + " in stock" : "Sold out", canAdd: p.stock > 0 });
+        html = detailHtml(p, o, { img: p.image_url, price: p.price, stockText: p.stock > 0 ? p.stock + " in stock" : "Sold out", canAdd: p.stock > 0,
+          notify: p.stock > 0 ? null : { variant: null, what: p.name } });
       } else {
         const c = choice(p, o), col = o.colors.find(x => x.id === c.color);
         const v = variantFor(p, o, c);
         const total = o.variants.reduce((t, x) => t + x.stock, 0);
         const needSize = o.sizes.length > 1 && !c.size;
+        // sold out (the whole product, or the colour + size chosen): offer "notify me"
+        const selOut = !needSize && (!v || v.stock === 0);
+        const notify = total === 0 || selOut
+          ? { variant: selOut && v ? v.id : null, what: [p.name, col && col.name, !needSize && c.size && "size " + c.size].filter(Boolean).join(", ") } : null;
         html = detailHtml(p, o, {
+          notify,
           c, col,
           img: (col && col.image_url) || p.image_url || (o.colors.find(x => x.image_url) || {}).image_url || "",
           price: col && col.price != null ? col.price : p.price,
-          stockText: total === 0 ? "Sold out" : needSize ? "Please choose a size" : v ? (v.stock > 0 ? v.stock + " in stock" : "Sold out") : "",
-          canAdd: total > 0 && !(v && v.stock === 0),
+          stockText: total === 0 || selOut ? "Sold out" : needSize ? "Please choose a size" : v ? v.stock + " in stock" : "",
+          canAdd: total > 0 && !selOut,
           sizeStock: sz => o.variants.filter(x => x.size === sz && (!o.colors.length || x.color_id === c.color)).reduce((t, x) => t + x.stock, 0),
         });
       }
@@ -616,6 +717,7 @@
       return `
         <div class="pm-img"><img src="${esc(d.img || "")}" alt="${esc(p.name + (d.col ? " – " + d.col.name : ""))}" onerror="this.style.visibility='hidden'" /></div>
         <div class="pm-info">
+          <button type="button" class="heart ${wish.has(p.id) ? "on" : ""}" data-wish="${p.id}" title="${wish.has(p.id) ? "Remove from wishlist" : "Save to wishlist"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 000-7.8z"/></svg></button>
           <h2 id="pmTitle">${esc(p.name)}</h2>
           ${p.description ? `<p class="pm-desc">${esc(p.description)}</p>` : ""}
           ${o.colors.length ? `
@@ -628,8 +730,9 @@
           ${o.sizes.length ? `
             <div class="pm-label">Size${d.c && d.c.size ? `: <strong>${esc(d.c.size)}</strong>` : ""}</div>
             <div class="pm-sizes">${o.sizes.map(sz => { const n = d.sizeStock(sz); return `
-              <button type="button" class="pm-size ${d.c.size === sz ? "on" : ""}" data-psize="${p.id}|${esc(sz)}" ${n ? "" : "disabled"}
-                title="${n ? n + " in stock" : "Sold out"}">${esc(sz)}<span class="cnt ${n ? "" : "zero"}">${n}</span></button>`; }).join("")}</div>` : ""}
+              <button type="button" class="pm-size ${d.c.size === sz ? "on" : ""} ${n ? "" : "out"}" data-psize="${p.id}|${esc(sz)}"
+                title="${n ? n + " in stock" : "Sold out — choose it to be told when it's back"}">${esc(sz)}<span class="cnt ${n ? "" : "zero"}">${n}</span></button>`; }).join("")}</div>` : ""}
+          ${d.notify ? notifyHtml(p, d.notify) : ""}
           <div class="pm-buy">
           <div class="pm-price-row">
             <span>${priceHtml(p, d.price, "pm-price", "", d.col)}${discountNow(p, d.col) ? `<div class="sale-note">${saleNote(p, d.col)}</div>` : ""}</span>
@@ -723,6 +826,8 @@
         <h3 style="margin-top:0">Thank you for your order!</h3>
         <p>Your order number is <strong>${ref}</strong>. We'll be in touch at ${esc(email)}.</p>
         <p>Amount due: <strong>${money(total)}</strong></p>
+        <p class="muted" style="font-size:13px">${customer ? "You can follow this order any time under <b>My account → My orders</b>."
+          : `Follow your order any time with <b>Track order</b> at the top — you'll need the order number and your email.`}</p>
         ${hasBank ? `
           <h4 style="margin:16px 0 6px">Pay by EFT</h4>
           <div class="eft">
@@ -743,6 +848,7 @@
       const form = $("checkout");
       if (form.classList.contains("hidden")) {
         form.classList.remove("hidden");
+        fillCheckout();
         $("checkoutBtn").textContent = "Place order";
         form.querySelector("input").focus();
         return;
@@ -754,17 +860,271 @@
       const sub = lines.reduce((t, x) => t + x.L.price * x.qty, 0);
       const total = sub + shippingFor(sub);
       $("checkoutBtn").disabled = true;
-      const { data, error } = await db.rpc("place_order", { p_customer: f, p_items: items });
+      // signed in: place it through the customer's account so it's linked to them
+      const { data, error } = await (customer ? acct : db).rpc("place_order", { p_customer: f, p_items: items });
       $("checkoutBtn").disabled = false;
       if (error) { toast(error.message); return; }
       const ref = String(data).slice(0, 8).toUpperCase();
       cart = {}; saveCart(); form.reset();
+      if (customer && (!customer.profile.phone && f.phone || !customer.profile.address && f.address)) {   // remember for next time
+        const upd = {}; if (!customer.profile.phone && f.phone) upd.phone = f.phone; if (!customer.profile.address && f.address) upd.address = f.address;
+        acct.from("customers").update(upd).eq("id", customer.user.id).then(() => Object.assign(customer.profile, upd));
+      }
       showOrderDone(ref, total, f.email);
       loadCatalog();
     }
 
+    // =====================================================
+    // CUSTOMER ACCOUNTS — sign in, my orders, wishlist, my details
+    // =====================================================
+    let customer = null;          // { user, profile } when signed in
+    let wish = new Set();         // product ids in the wishlist
+    let accView = "signin", accMsg = "", accTab = "orders", accAfter = null;
+    const notified = new Set();   // "notify me" sent this visit (product|variant)
+
+    async function refreshCustomer() {
+      const { data: { session } } = await acct.auth.getSession();
+      if (!session) { customer = null; wish = new Set(); updateAccHeader(); return; }
+      let { data: prof } = await acct.from("customers").select("*").eq("id", session.user.id).maybeSingle();
+      if (!prof) {   // account made before customer accounts existed
+        await acct.from("customers").insert({ id: session.user.id, email: session.user.email });
+        prof = { id: session.user.id, email: session.user.email };
+      }
+      customer = { user: session.user, profile: prof };
+      const w = await acct.from("wishlist").select("product_id");
+      wish = new Set((w.data || []).map(r => r.product_id));
+      updateAccHeader();
+    }
+    function updateAccHeader() {
+      $("accLabel").textContent = customer ? (customer.profile.name || "My account").split(" ")[0] : "Sign in";
+      $("wishCount").textContent = wish.size; $("wishCount").classList.toggle("hidden", !wish.size);
+      if (products.length) { renderProducts(); if (openPid) renderDetail(); }
+    }
+    function openAccount(view, msg, after) {
+      accView = view || (customer ? "account" : "signin"); accMsg = msg || ""; accAfter = after || null;
+      renderAccount();
+      $("accModal").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      setTimeout(() => { const i = $("accBody").querySelector("input:not([readonly])"); if (i) i.focus(); }, 30);
+    }
+    function closeAccount() { $("accModal").classList.add("hidden"); if (!openPid) document.body.style.overflow = ""; }
+    const friendly = m => /Invalid login credentials/i.test(m) ? "Wrong email or password."
+      : /already registered|already been registered/i.test(m) ? "There's already an account with this email — please sign in."
+      : /Email not confirmed/i.test(m) ? "Please confirm your email first — check your inbox for the link."
+      : /Password should be at least/i.test(m) ? "Your password must be at least 6 characters."
+      : /rate limit/i.test(m) ? "Too many tries — please wait a few minutes and try again." : m;
+
+    function renderAccount() {
+      const b = $("accBody"), note = accMsg ? `<div class="note">${esc(accMsg)}</div>` : "";
+      if (accView === "signin") b.innerHTML = `
+        <h2 id="accTitle">Sign in</h2><p class="lead">Welcome back! Sign in to see your orders and wishlist.</p>${note}
+        <form data-accform="signin">
+          <label>Email</label><input name="email" type="email" required autocomplete="email" />
+          <label>Password</label><input name="password" type="password" required autocomplete="current-password" />
+          <div class="err"></div>
+          <button class="btn primary wide">Sign in</button>
+        </form>
+        <div class="links"><button class="linkbtn" data-accgo="forgot">Forgot your password?</button><span>New here? <button class="linkbtn" data-accgo="signup">Create an account</button></span></div>`;
+      else if (accView === "signup") b.innerHTML = `
+        <h2 id="accTitle">Create an account</h2><p class="lead">Save your details for faster checkout, follow your orders and keep a wishlist.</p>${note}
+        <form data-accform="signup">
+          <label>Full name</label><input name="name" required autocomplete="name" />
+          <label>Email</label><input name="email" type="email" required autocomplete="email" />
+          <label>Phone</label><input name="phone" type="tel" autocomplete="tel" />
+          <label>Password <span class="muted" style="font-size:12px">(at least 8 characters)</span></label><input name="password" type="password" minlength="8" required autocomplete="new-password" />
+          <div class="err"></div>
+          <button class="btn primary wide">Create account</button>
+        </form>
+        <div class="links"><span>Already have an account? <button class="linkbtn" data-accgo="signin">Sign in</button></span></div>`;
+      else if (accView === "forgot") b.innerHTML = `
+        <h2 id="accTitle">Forgot your password?</h2><p class="lead">Enter your email and we'll send you a link to choose a new one.</p>${note}
+        <form data-accform="forgot"><label>Email</label><input name="email" type="email" required /><div class="err"></div>
+          <button class="btn primary wide">Send the link</button></form>
+        <div class="links"><button class="linkbtn" data-accgo="signin">Back to sign in</button></div>`;
+      else if (accView === "reset") b.innerHTML = `
+        <h2 id="accTitle">Choose a new password</h2>${note}
+        <form data-accform="reset"><label>New password <span class="muted" style="font-size:12px">(at least 8 characters)</span></label>
+          <input name="password" type="password" minlength="8" required autocomplete="new-password" /><div class="err"></div>
+          <button class="btn primary wide">Save new password</button></form>`;
+      else if (accView === "track") b.innerHTML = `
+        <h2 id="accTitle">Track my order</h2><p class="lead">Enter your order number (on your order email, e.g. <b>A1B2C3D4</b>) and the email you ordered with.</p>
+        <form data-accform="track">
+          <label>Order number</label><input name="ref" required maxlength="9" placeholder="A1B2C3D4" style="text-transform:uppercase" />
+          <label>Email</label><input name="email" type="email" required value="${esc(customer ? customer.user.email : "")}" />
+          <div class="err"></div><button class="btn primary wide">Track order</button>
+        </form><div id="trackOut" style="margin-top:16px"></div>`;
+      else {   // signed in
+        const tabs = [["orders", "My orders"], ["wishlist", `Wishlist (${wish.size})`], ["details", "My details"]];
+        b.innerHTML = `
+          <h2 id="accTitle">Hi ${esc((customer.profile.name || "there").split(" ")[0])}!</h2>
+          <p class="lead">${esc(customer.user.email)} · <button class="linkbtn" data-accout="1">Sign out</button></p>${note}
+          <div class="acc-tabs">${tabs.map(([k, l]) => `<button type="button" class="${accTab === k ? "on" : ""}" data-acctab="${k}">${l}</button>`).join("")}</div>
+          <div id="accPane"></div>`;
+        renderAccPane();
+      }
+    }
+    async function renderAccPane() {
+      const pane = $("accPane"); if (!pane) return;
+      if (accTab === "orders") {
+        pane.innerHTML = `<p class="muted">Loading your orders…</p>`;
+        const { data, error } = await acct.rpc("my_orders");
+        if (accTab !== "orders" || !$("accPane")) return;
+        pane.innerHTML = error ? `<p class="err">${esc(error.message)}</p>`
+          : (data || []).length ? data.map(orderHtml).join("") : `<p class="muted">No orders yet. Orders you place while signed in show here.</p>`;
+      } else if (accTab === "wishlist") {
+        const list = products.filter(p => wish.has(p.id));
+        pane.innerHTML = list.length ? `<div class="wish-grid">${list.map(p => {
+          const o = optionsOf(p), img = p.image_url || (o.colors.find(c => c.image_url) || {}).image_url || "";
+          return `<div class="wish-item" data-wishopen="${p.id}">
+            <div class="ph">${img ? `<img src="${esc(img)}" alt="">` : ""}</div>
+            <div class="nm">${esc(p.name)}</div><div class="pr">${priceInfo(p, o).html}</div>
+            <button type="button" class="linkbtn" style="font-size:12px" data-wish="${p.id}">Remove</button></div>`; }).join("")}</div>`
+          : `<p class="muted">Your wishlist is empty. Tap the ♡ on any product to save it here.</p>`;
+      } else {
+        const pr = customer.profile;
+        pane.innerHTML = `<form data-accform="details">
+          <label>Full name</label><input name="name" value="${esc(pr.name || "")}" required />
+          <label>Email</label><input value="${esc(customer.user.email)}" readonly style="opacity:.7" />
+          <label>Phone</label><input name="phone" type="tel" value="${esc(pr.phone || "")}" />
+          <label>Delivery address</label><textarea name="address" rows="3">${esc(pr.address || "")}</textarea>
+          <div class="err"></div><button class="btn primary wide">Save my details</button>
+        </form>
+        <form data-accform="password" style="margin-top:22px;border-top:1px solid var(--border);padding-top:6px">
+          <label>New password <span class="muted" style="font-size:12px">(at least 8 characters)</span></label>
+          <input name="password" type="password" minlength="8" required autocomplete="new-password" />
+          <div class="err"></div><button class="btn wide" style="width:100%;margin-top:10px">Change password</button>
+        </form>`;
+      }
+    }
+    // one order: number, date, status, progress, courier + waybill, items
+    function orderHtml(o) {
+      const d = x => x ? new Date(x).toLocaleDateString(cfg.LOCALE, { day: "numeric", month: "short" }) : "";
+      const cancelled = o.status === "cancelled";
+      const order = ["new", "invoiced", "paid", "shipped", "completed"], at = order.indexOf(o.status);
+      const steps = [["Placed", o.created_at], ["Invoiced", o.invoiced_at], ["Paid", o.paid_at], ["Shipped", o.shipped_at || o.ship_date], ["Delivered", o.completed_at]];
+      const label = { new: "Order received", invoiced: "Invoiced", paid: "Paid", shipped: "On its way", completed: "Completed", cancelled: "Cancelled" }[o.status] || o.status;
+      return `<div class="ord">
+        <div class="ord-top"><div><div class="ref">Order #${esc(o.ref)}</div><div class="dt">${new Date(o.created_at).toLocaleString(cfg.LOCALE, { dateStyle: "medium", timeStyle: "short" })}</div></div>
+          <span class="pill ${esc(o.status)}">${esc(label)}</span></div>
+        ${cancelled ? "" : `<div class="steps">${steps.map((st, i) => `<div class="st ${i <= at ? "done" : ""}"><i></i>${st[0]}<br>${i <= at ? d(st[1]) : ""}</div>`).join("")}</div>`}
+        ${o.waybill_no || o.courier_name ? `<div class="ship-box">🚚 ${esc(o.courier_name || "Courier")}${o.ship_date ? ` · shipped ${d(o.ship_date + "T12:00")}` : ""}${o.waybill_no ? `<br>Waybill number: <b>${esc(o.waybill_no)}</b>` : ""}</div>` : ""}
+        <div class="ord-items">${(o.items || []).filter(i => !i.shipping).map(i => `${i.qty} × ${esc(i.name)}`).join("<br>")}</div>
+        <div class="ord-total"><span>Total${Number(o.shipping_fee) ? ` <span class="muted" style="font-weight:400;font-size:12px">(incl. ${money(o.shipping_fee)} shipping)</span>` : ""}</span><span>${money(o.total)}</span></div>
+      </div>`;
+    }
+
+    // forms in the account window
+    document.addEventListener("submit", async e => {
+      const f = e.target, kind = f.dataset.accform;
+      if (!kind) return;
+      e.preventDefault();
+      const err = f.querySelector(".err"), btn = f.querySelector("button:not([type=button])"), old = btn.textContent;
+      const v = n => (f[n] && f[n].value || "").trim();
+      err.textContent = ""; btn.disabled = true; btn.textContent = "Please wait…";
+      try {
+        if (kind === "signin") {
+          const { error } = await acct.auth.signInWithPassword({ email: v("email"), password: f.password.value });
+          if (error) throw error;
+          await refreshCustomer(); toast("Signed in"); afterAuth();
+        } else if (kind === "signup") {
+          const { data, error } = await acct.auth.signUp({ email: v("email"), password: f.password.value,
+            options: { data: { name: v("name"), phone: v("phone") }, emailRedirectTo: location.origin + location.pathname } });
+          if (error) throw error;
+          if (data.user && Array.isArray(data.user.identities) && !data.user.identities.length) throw new Error("already registered");
+          if (!data.session) { accView = "signin"; accMsg = "Account created! We've emailed you a link — click it to confirm your email, then sign in."; renderAccount(); return; }
+          await refreshCustomer(); toast("Welcome! Your account is ready"); afterAuth();
+        } else if (kind === "forgot") {
+          const { error } = await acct.auth.resetPasswordForEmail(v("email"), { redirectTo: location.origin + location.pathname });
+          if (error) throw error;
+          accView = "signin"; accMsg = "If there's an account with that email, we've sent a link to choose a new password."; renderAccount();
+        } else if (kind === "reset" || kind === "password") {
+          const { error } = await acct.auth.updateUser({ password: f.password.value });
+          if (error) throw error;
+          toast("Password saved"); if (kind === "reset") { await refreshCustomer(); accView = "account"; accMsg = ""; renderAccount(); } else f.reset();
+        } else if (kind === "details") {
+          const upd = { name: v("name"), phone: v("phone") || null, address: v("address") || null };
+          const { error } = await acct.from("customers").update(upd).eq("id", customer.user.id);
+          if (error) throw error;
+          Object.assign(customer.profile, upd); updateAccHeader(); toast("Details saved");
+        } else if (kind === "track") {
+          const { data, error } = await acct.rpc("track_order", { p_ref: v("ref").replace("#", ""), p_email: v("email") });
+          if (error) throw error;
+          $("trackOut").innerHTML = data ? orderHtml(data) : `<p class="err">We couldn't find that order. Check the order number and use the same email you ordered with.</p>`;
+        }
+      } catch (ex) {
+        err.textContent = friendly(ex.message || String(ex));
+      } finally { btn.disabled = false; btn.textContent = old; }
+    });
+    function afterAuth() {
+      const go = accAfter; accAfter = null;
+      if (go) { closeAccount(); go(); } else { accView = "account"; accMsg = ""; renderAccount(); }
+    }
+    async function toggleWish(pid) {
+      if (!customer) return openAccount("signin", "Sign in or create an account to save favourites ♡", () => toggleWish(pid));
+      const on = wish.has(pid);
+      if (on) wish.delete(pid); else wish.add(pid);
+      updateAccHeader();
+      const r = on ? await acct.from("wishlist").delete().eq("customer_id", customer.user.id).eq("product_id", pid)
+                   : await acct.from("wishlist").insert({ customer_id: customer.user.id, product_id: pid });
+      if (r.error) { if (on) wish.add(pid); else wish.delete(pid); updateAccHeader(); return toast(r.error.message); }
+      toast(on ? "Removed from your wishlist" : "Saved to your wishlist ♡");
+      if (!$("accModal").classList.contains("hidden") && accTab === "wishlist") renderAccount();
+    }
+
+    // "notify me when back in stock"
+    function notifyHtml(p, n) {
+      const key = p.id + "|" + (n.variant || "");
+      if (notified.has(key)) return `<div class="notify"><div class="ok">✓ We'll email you as soon as it's back in stock.</div></div>`;
+      return `<div class="notify"><div class="t">🔔 Sold out — want to know when it's back?</div>
+        <div class="s">We'll email you once ${esc(n.what)} is back in stock.</div>
+        <form data-notify="${p.id}|${n.variant || ""}"><input name="email" type="email" required placeholder="Your email" value="${esc(customer ? customer.user.email : "")}" />
+          <button class="btn primary">Notify me</button></form></div>`;
+    }
+    document.addEventListener("submit", async e => {
+      const f = e.target; if (!f.dataset.notify) return;
+      e.preventDefault();
+      const [pid, vid] = f.dataset.notify.split("|"), btn = f.querySelector("button");
+      btn.disabled = true;
+      const { error } = await acct.rpc("request_stock_alert", { p_product: pid, p_variant: vid || null, p_email: f.email.value.trim() });
+      btn.disabled = false;
+      if (error) return toast(/request_stock_alert/.test(error.message) ? "This isn't switched on yet" : error.message);
+      notified.add(pid + "|" + vid); renderDetail(); toast("We'll let you know 🔔");
+    });
+
+    $("accBtn").onclick = () => openAccount(customer ? "account" : "signin");
+    $("wishBtn").onclick = () => { accTab = "wishlist"; openAccount(customer ? "account" : "signin", customer ? "" : "Sign in to see your wishlist ♡"); };
+    $("trackBtn").onclick = () => openAccount("track");
+    $("accModal").addEventListener("click", async e => {
+      if (e.target.id === "accModal" || e.target.closest(".acc-close")) return closeAccount();
+      const t = e.target.closest("[data-accgo],[data-acctab],[data-accout],[data-wishopen]");
+      if (!t) return;
+      if (t.dataset.accgo) { accView = t.dataset.accgo; accMsg = ""; renderAccount(); }
+      else if (t.dataset.acctab) { accTab = t.dataset.acctab; renderAccount(); }
+      else if (t.dataset.accout) { await acct.auth.signOut(); customer = null; wish = new Set(); updateAccHeader(); closeAccount(); toast("Signed out"); }
+      else if (t.dataset.wishopen && !e.target.closest("[data-wish]")) { closeAccount(); openProduct(t.dataset.wishopen); }
+    });
+    acct.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setTimeout(() => openAccount("reset"), 300);
+      if (event === "SIGNED_OUT") { customer = null; wish = new Set(); updateAccHeader(); }
+    });
+
+    // checkout: fill in a signed-in customer's details, or offer to sign in
+    function fillCheckout() {
+      const f = $("checkout");
+      if (customer) {
+        const pr = customer.profile;
+        if (!f.name.value) f.name.value = pr.name || "";
+        if (!f.email.value) f.email.value = customer.user.email || "";
+        if (!f.phone.value) f.phone.value = pr.phone || "";
+        if (!f.address.value) f.address.value = pr.address || "";
+        $("coAcc").innerHTML = `Signed in as <b>${esc(customer.user.email)}</b> — this order will show under <i>My orders</i>.`;
+      } else $("coAcc").innerHTML = `Have an account? <button type="button" class="linkbtn" id="coSignin">Sign in</button> to fill this in for you.`;
+    }
+    document.addEventListener("click", e => { if (e.target.id === "coSignin") openAccount("signin", "Sign in to fill in your details", () => { fillCheckout(); }); });
+
     // ---------- EVENTS ----------
     document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && !$("accModal").classList.contains("hidden")) { closeAccount(); return; }
       if (e.key === "Escape" && openPid) { if (showFull) { showFull = false; renderDetail(); } else closeProduct(); }
       const card = e.target.closest && e.target.closest("[data-open]");
       if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openProduct(card.dataset.open); }
@@ -775,6 +1135,8 @@
     });
     document.addEventListener("click", e => {
       const d = e.target.dataset;
+      const wb = e.target.closest("[data-wish]");
+      if (wb) { e.stopPropagation(); toggleWish(wb.dataset.wish); return; }
       const t = e.target.closest("[data-pcol],[data-psize]");
       if (t && t.dataset.pcol) { const [pid, cid] = t.dataset.pcol.split("|"); (sel[pid] = sel[pid] || {}).color = cid; renderDetail(); return; }
       if (t && t.dataset.psize) { const [pid, sz] = t.dataset.psize.split("|"); (sel[pid] = sel[pid] || {}).size = sz; renderDetail(); return; }
@@ -803,7 +1165,7 @@
     $("overlay").onclick = () => openCart(false);
     $("checkoutBtn").onclick = placeOrder;
 
-    const SHOP_VERSION = "8.2";   // shown at the bottom of the shop, so you can see which version is live
+    const SHOP_VERSION = "8.3";   // shown at the bottom of the shop, so you can see which version is live
     $("shopVersion").textContent = "Shop version " + SHOP_VERSION;
     // the admin's version, read from the live admin page so it's always right
     fetch("admin.html", { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(t => {
@@ -811,7 +1173,11 @@
       if (m) $("shopVersion").textContent = `Shop version ${SHOP_VERSION} · Admin version ${m[1]}`;
     }).catch(() => {});
     loadSettings();
-    loadCatalog();
+    loadCatalog().then(() => {   // a link like ?p=<product> opens that product (used in back-in-stock emails)
+      const pid = new URLSearchParams(location.search).get("p");
+      if (pid && products.some(x => x.id === pid)) openProduct(pid);
+    });
+    refreshCustomer();
   </script>
 </body>
 </html>
