@@ -40,8 +40,11 @@
     .hbtn .hcount { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px;
       background: #d92d20; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
     #wishBtn svg { color: #d92d20; }
+    #accBtn.signed { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); font-weight: 600; }
+    #accBtn.signed span { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     @media (max-width: 760px) {
       .hbtn span { display: none; }
+      #accBtn.signed span { display: inline; max-width: 76px; font-size: 13px; }
       .hbtn { padding: 8px; }
       .hacts { gap: 5px; }
       header.top h1 { font-size: 16px; }
@@ -896,7 +899,11 @@
       updateAccHeader();
     }
     function updateAccHeader() {
-      $("accLabel").textContent = customer ? (customer.profile.name || "My account").split(" ")[0] : "Sign in";
+      // signed in: "Hi Jane" next to the account icon (also on phones), so it's clear you're logged in
+      const first = customer ? String(customer.profile.name || "").trim().split(/\s+/)[0] : "";
+      $("accLabel").textContent = customer ? (first ? "Hi " + first : "My account") : "Sign in";
+      $("accBtn").classList.toggle("signed", !!customer);
+      $("accBtn").title = customer ? `Signed in as ${customer.user.email} — my account` : "Sign in";
       $("wishCount").textContent = wish.size; $("wishCount").classList.toggle("hidden", !wish.size);
       if (products.length) { renderProducts(); if (openPid) renderDetail(); }
     }
@@ -1165,7 +1172,7 @@
     $("overlay").onclick = () => openCart(false);
     $("checkoutBtn").onclick = placeOrder;
 
-    const SHOP_VERSION = "8.3";   // shown at the bottom of the shop, so you can see which version is live
+    const SHOP_VERSION = "8.4";   // shown at the bottom of the shop, so you can see which version is live
     $("shopVersion").textContent = "Shop version " + SHOP_VERSION;
     // the admin's version, read from the live admin page so it's always right
     fetch("admin.html", { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(t => {
